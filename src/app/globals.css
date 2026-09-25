@@ -5,8 +5,19 @@
   --foreground: #1E293B;
 }
 
-body {
+html, body {
   background-color: #FDFBF7;
   color: #1E293B;
   font-family: var(--font-cairo), Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: none;
+}
+
+/* Standalone PWA Mobile Safe Area Adjustments */
+@media all and (display-mode: standalone) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

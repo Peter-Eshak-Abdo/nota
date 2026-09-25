@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Cairo, Inter } from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/context/AppContext';
+import { PwaInstallPrompt } from '@/components/pwa/PwaInstallPrompt';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -18,12 +19,21 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: 'Nota | النوتة الروحية - كنيسة العذراء بالإسماعيلية',
   description:
-    'نظام النوتة الروحية الذكية وبناء العادات لشباب ثانوي - كنيسة السيدة العذراء مريم بالإسماعيلية',
+    'نظام النوتة الروحية وبناء العادات لشباب ثانوي - كنيسة السيدة العذراء مريم بالإسماعيلية',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon-192.png',
+    shortcut: '/icon-192.png',
+    apple: '/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Nota',
+  },
+  applicationName: 'Nota',
+  formatDetection: {
+    telephone: false,
   },
 };
 
@@ -33,6 +43,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
@@ -45,6 +56,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-[#FDFBF7] text-slate-800 font-sans antialiased selection:bg-amber-500 selection:text-white">
         <AppProvider>
           {children}
+          <PwaInstallPrompt />
         </AppProvider>
       </body>
     </html>

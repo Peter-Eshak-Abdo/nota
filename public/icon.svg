@@ -1,0 +1,70 @@
+
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="50%" stop-color="#D97706"/>
+      <stop offset="100%" stop-color="#92400E"/>
+    </linearGradient>
+    <linearGradient id="goldCross" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF3C7"/>
+      <stop offset="50%" stop-color="#FDE68A"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="10.24" stdDeviation="15.36" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle rounded background for native app look -->
+  <rect width="512" height="512" rx="112.64" fill="url(#bgGrad)"/>
+
+  <!-- Inner subtle border glow -->
+  <rect x="15.36" y="15.36" width="481.28" height="481.28" rx="102.4" stroke="#FDE68A" stroke-width="7.68" stroke-opacity="0.4" fill="none"/>
+
+  <!-- Holy Light Rays / Arch in Background -->
+  <circle cx="256" cy="230.4" r="163.84" stroke="#FEF3C7" stroke-width="5.12" stroke-dasharray="10.24 10.24" opacity="0.4"/>
+
+  <!-- Holy Bible / Open Notebook Silhouette -->
+  <g filter="url(#shadow)">
+    <!-- Book Left Page -->
+    <path d="
+      M 256 389.12
+      C 215.04 368.64 133.12 373.76 102.4 394.24
+      L 102.4 235.52
+      C 133.12 215.04 215.04 209.92 256 230.4
+      Z
+    " fill="#FFFBEB" opacity="0.95"/>
+
+    <!-- Book Right Page -->
+    <path d="
+      M 256 389.12
+      C 296.96 368.64 378.88 373.76 409.6 394.24
+      L 409.6 235.52
+      C 378.88 215.04 296.96 209.92 256 230.4
+      Z
+    " fill="#FEF3C7" opacity="0.95"/>
+
+    <!-- Book Spine Center Fold -->
+    <path d="M 256 230.4 L 256 389.12" stroke="#D97706" stroke-width="7.68" stroke-linecap="round"/>
+  </g>
+
+  <!-- Sacred Orthodox Christian Cross Shining Above the Book -->
+  <g filter="url(#shadow)">
+    <!-- Vertical Cross Beam -->
+    <rect x="235.52" y="92.16" width="40.96" height="163.84" rx="10.24" fill="url(#goldCross)"/>
+    <!-- Horizontal Cross Beam -->
+    <rect x="174.08" y="133.12" width="163.84" height="40.96" rx="10.24" fill="url(#goldCross)"/>
+    
+    <!-- Central Cross Diamond Gem -->
+    <polygon points="
+      256,138.24
+      271.36,153.6
+      256,168.96
+      240.64,153.6
+    " fill="#B45309"/>
+  </g>
+
+  <!-- App Title Arabic "Nota" Stylized text at bottom -->
+  <text x="256" y="460.8" font-family="Arial, sans-serif" font-size="46.08" font-weight="900" fill="#FEF3C7" text-anchor="middle" letter-spacing="5.12">NOTA</text>
+</svg>
