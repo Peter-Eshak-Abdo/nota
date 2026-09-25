@@ -1,14 +1,16 @@
 {
   "name": "Nota - النوتة الروحية",
   "short_name": "Nota",
-  "description": "النوتة الروحية وبناء العادات لشباب الكنيسة - Atomic Habits",
+  "description": "النوتة الروحية وبناء العادات لشباب كنيسة السيدة العذراء مريم بالإسماعيلية",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#090D16",
-  "theme_color": "#D4AF37",
+  "background_color": "#FDFBF7",
+  "theme_color": "#D97706",
   "orientation": "portrait",
   "dir": "rtl",
   "lang": "ar",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",

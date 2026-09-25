@@ -2,76 +2,116 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for RBAC
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
     function isAdmin() {
-      return isAuthenticated() && (getUserData().role == 'admin');
+      return isAuthenticated() && (
+        request.auth.token.role == 'admin' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
     }
 
     function isServant() {
-      return isAuthenticated() && (getUserData().role == 'servant');
+      return isAuthenticated() && (
+        request.auth.token.role == 'servant' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'servant'
+      );
     }
 
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 1. Users Collection
-    match /users/{userId} {
-      // Any authenticated user can read basic user profiles in their church
-      allow read: if isAuthenticated();
-      // Only Admin can create/update roles and assignments directly
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedServantId', 'assignedYouthIds']));
+    function isAssignedServant(youthId) {
+      return isServant() && (
+        get(/databases/$(database)/documents/users/$(youthId)).data.assignedServantId == request.auth.uid
+      );
     }
 
-    // 2. Habits & Daily Logs (The Spiritual Law)
-    match /daily_logs/{logId} {
+    // 1. Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isOwner(userId) || isServant() || isAdmin());
+      allow create: if isAdmin() || (isAuthenticated() && request.resource.data.role == 'youth');
+      allow update: if isAdmin() || isOwner(userId) || isAssignedServant(userId);
+      allow delete: if isAdmin();
+    }
+
+    // 2. Daily Habit Logs
+    match /dailyLogs/{logId} {
       allow read: if isAuthenticated() && (
-        isOwner(resource.data.userId) || 
-        isServant() || 
+        resource.data.userId == request.auth.uid ||
+        isAssignedServant(resource.data.userId) ||
         isAdmin()
       );
-      // Youth can log their own tasks; cannot overwrite other users' logs
       allow create, update: if isAuthenticated() && (
-        request.resource.data.userId == request.auth.uid || isAdmin()
+        request.resource.data.userId == request.auth.uid ||
+        isAdmin()
       );
       allow delete: if isAdmin();
     }
 
-    // 3. Sermons Collection
+    // 3. Sermons
     match /sermons/{sermonId} {
-      // All authenticated users can view sermons
       allow read: if isAuthenticated();
-      // Admin and Servants can create sermons
-      allow create: if isAdmin() || isServant();
-      // Admin can update/delete any sermon; Servant can edit/delete sermons they added
-      allow update, delete: if isAdmin() || (isServant() && resource.data.addedBy == request.auth.uid);
+      allow write: if isServant() || isAdmin();
     }
 
-    // 4. Servant Private Notes (Confidential between Servant and Admin)
-    match /servant_notes/{noteId} {
-      // Strictly visible ONLY to Admins and the author Servant (Youth CANNOT read)
-      allow read: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
-      allow create: if isServant() || isAdmin();
-      allow update, delete: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
+    // 4. Servant Private Notes (STRICT: Never readable by Youth)
+    match /servantNotes/{noteId} {
+      allow read, write: if isServant() || isAdmin();
     }
 
     // 5. Approval Requests
-    match /approval_requests/{requestId} {
-      // Servants can view requests they created; Admin can view all
-      allow read: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
-      // Servants can create requests
-      allow create: if isServant();
-      // Only Admin can approve/reject/modify requests
+    match /approvalRequests/{requestId} {
+      allow read: if isServant() || isAdmin();
+      allow create: if isServant() || isAdmin();
       allow update, delete: if isAdmin();
+    }
+
+    // 6. Registration Requests
+    match /registrationRequests/{requestId} {
+      allow create: if true; // Public self-registration
+      allow read: if isServant() || isAdmin();
+      allow update: if isServant() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 7. Servant to Youth Messages
+    match /servantMessages/{messageId} {
+      allow read: if isAuthenticated() && (
+        resource.data.youthId == request.auth.uid ||
+        resource.data.servantId == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isServant() || isAdmin();
+      allow update: if isAuthenticated() && (
+        resource.data.youthId == request.auth.uid || // Youth can mark as read
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 8. System Error Logs
+    match /systemErrors/{errorId} {
+      allow create: if true; // Any client can report an error
+      allow read, update, delete: if isAdmin();
+    }
+
+    // 9. Monthly Sacred Archives
+    match /monthlyArchives/{archiveId} {
+      allow read: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid ||
+        isAdmin()
+      );
+      allow write: if isAdmin();
+    }
+
+    // Fallback: Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

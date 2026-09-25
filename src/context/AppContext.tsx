@@ -39,6 +39,7 @@ import {
   getBiometricLinkedUser,
   authenticateWithDeviceBiometrics,
 } from '@/lib/biometrics';
+import { checkRateLimit, sanitizeInput, recordSecurityAudit } from '@/lib/security';
 
 interface AppContextType {
   currentUser: UserProfile | null;
@@ -111,23 +112,25 @@ interface AppContextType {
   ) => void;
   rotateServantsMonthly: () => void;
   reassignYouth: (youthId: string, servantId: string) => void;
+  importUsers: (importedUsers: UserProfile[]) => void;
+  resetToProductionAdmin: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  USERS: 'nota_users_v3',
-  CURRENT_USER_ID: 'nota_current_user_id_v3',
-  LOGS: 'nota_daily_logs_v3',
-  SERMONS: 'nota_sermons_v3',
-  NOTES: 'nota_servant_notes_v3',
-  APPROVALS: 'nota_approvals_v3',
-  REGISTRATIONS: 'nota_registrations_v3',
-  MESSAGES: 'nota_messages_v3',
-  ERRORS: 'nota_errors_v3',
-  ARCHIVES: 'nota_archives_v3',
-  COMMUNIONS: 'nota_communions_v3',
-  CONFESSIONS: 'nota_confessions_v3',
+  USERS: 'nota_users_prod_v4',
+  CURRENT_USER_ID: 'nota_current_user_id_prod_v4',
+  LOGS: 'nota_daily_logs_prod_v4',
+  SERMONS: 'nota_sermons_prod_v4',
+  NOTES: 'nota_servant_notes_prod_v4',
+  APPROVALS: 'nota_approvals_prod_v4',
+  REGISTRATIONS: 'nota_registrations_prod_v4',
+  MESSAGES: 'nota_messages_prod_v4',
+  ERRORS: 'nota_errors_prod_v4',
+  ARCHIVES: 'nota_archives_prod_v4',
+  COMMUNIONS: 'nota_communions_prod_v4',
+  CONFESSIONS: 'nota_confessions_prod_v4',
 };
 
 const generateEntityId = (prefix: string) => `${prefix}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
@@ -382,6 +385,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 14-Digit Code Login
   const loginWithCode = (rawInputCode: string): { success: boolean; message?: string } => {
     try {
+      const rateLimit = checkRateLimit('login_attempts', 6, 60 * 1000);
+      if (!rateLimit.allowed) {
+        return {
+          success: false,
+          message: `تم تجاوز عدد المحاولات لحماية الأمان. يرجى الانتظار ${rateLimit.retryAfterSeconds} ثانية قبل إعادة المحاولة.`,
+        };
+      }
+
       const cleanInput = clean14DigitCode(rawInputCode);
       if (cleanInput.length < 14) {
         return { success: false, message: 'الكود يجب أن يتكون من ١٤ رقماً.' };
@@ -619,8 +630,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         [taskType]: {
           completed: true,
           completedAt: new Date().toISOString(),
-          questionText,
-          reflectionAnswer: answer,
+          questionText: questionText ? sanitizeInput(questionText, 500) : undefined,
+          reflectionAnswer: sanitizeInput(answer, 2000),
           questionId,
           timeSpentSeconds,
           agpeyaHour,
@@ -956,6 +967,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
+  const importUsers = (importedUsers: UserProfile[]) => {
+    setAllUsers((prev) => {
+      const existingCodes = new Set(prev.map((u) => clean14DigitCode(u.accessCode)));
+      const filtered = importedUsers.filter((u) => !existingCodes.has(clean14DigitCode(u.accessCode)));
+      const combined = [...prev, ...filtered];
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(combined));
+      }
+      return combined;
+    });
+    recordSecurityAudit('import_users_excel', currentUser?.uid || 'admin-1', {
+      count: importedUsers.length,
+    });
+  };
+
+  const resetToProductionAdmin = () => {
+    setAllUsers(SEED_PROFILES);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(SEED_PROFILES));
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+    }
+    setCurrentUserId('admin-1');
+    recordSecurityAudit('reset_to_production_admin', 'admin-1', {});
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -997,6 +1033,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         handleApprovalDecision,
         rotateServantsMonthly,
         reassignYouth,
+        importUsers,
+        resetToProductionAdmin,
       }}
     >
       {children}
