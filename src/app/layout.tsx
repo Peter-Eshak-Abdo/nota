@@ -17,19 +17,19 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Nota | النوتة الروحية وبناء العادات لشباب ثانوي',
+  title: 'Nota | النوتة الروحية - كنيسة العذراء بالإسماعيلية',
   description:
-    'نظام النوتة الروحية الذكية لشباب الكنيسة والمخدومين - تتبع القراءات والصلاة والتناول والاعتراف مع التحقق اللحظي والأشكال الغامضة',
+    'نظام النوتة الروحية الذكية وبناء العادات لشباب ثانوي - كنيسة السيدة العذراء مريم بالإسماعيلية',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'Nota',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#090D16',
+  themeColor: '#D97706',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -42,8 +42,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar" dir="rtl" className={`${cairo.variable} ${inter.variable} dark`}>
-      <body className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-amber-500 selection:text-slate-950">
+    <html lang="ar" dir="rtl" className={`${cairo.variable} ${inter.variable}`}>
+      <body className="min-h-screen bg-[#FDFBF7] text-slate-800 font-sans antialiased selection:bg-amber-500 selection:text-white">
         <AppProvider>
           <Navbar />
           {children}

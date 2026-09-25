@@ -7,12 +7,13 @@ import {
   Sermon,
   ServantPrivateNote,
   ApprovalRequest,
+  RegistrationRequest,
   HabitType,
-  OfflineAction,
   UserRole,
 } from '@/types';
 import {
   SEED_PROFILES,
+  SEED_REGISTRATIONS,
   SEED_SERMONS,
   SEED_NOTES,
   SEED_APPROVALS,
@@ -21,21 +22,44 @@ import {
 } from '@/lib/dataStore';
 
 interface AppContextType {
-  currentUser: UserProfile;
+  currentUser: UserProfile | null;
   allUsers: UserProfile[];
   currentDailyLog: DailyHabitLog;
   sermons: Sermon[];
   servantNotes: ServantPrivateNote[];
   approvalRequests: ApprovalRequest[];
+  registrationRequests: RegistrationRequest[];
   isOnline: boolean;
   syncStatus: 'synced' | 'pending_sync' | 'offline';
+  login: (email: string) => { success: boolean; message?: string };
+  quickDemoLogin: (role: UserRole, uid?: string) => void;
   switchUser: (uid: string) => void;
+  logout: () => void;
+  registerUser: (data: {
+    userName: string;
+    email: string;
+    phone?: string;
+    role: 'servant' | 'youth';
+    assignedServantId?: string;
+    churchGroup?: string;
+  }) => { success: boolean; message: string };
+  handleRegistrationDecision: (
+    requestId: string,
+    decision: 'approved' | 'rejected'
+  ) => void;
   markTaskComplete: (
     taskType: HabitType,
     answer: string,
     questionId: string,
-    timeSpentSeconds: number
+    timeSpentSeconds: number,
+    questionText?: string
   ) => void;
+  assignReadingPlanToYouth: (
+    youthId: string,
+    bookName: string,
+    totalChapters: number
+  ) => void;
+  getUserDailyLog: (userId: string) => DailyHabitLog;
   addSermon: (sermon: Omit<Sermon, 'id' | 'addedAt' | 'watchedByUserIds'>) => void;
   toggleSermonWatched: (sermonId: string) => void;
   addServantNote: (note: Omit<ServantPrivateNote, 'id' | 'createdAt'>) => void;
@@ -55,45 +79,55 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const STORAGE_KEYS = {
-  USERS: 'nota_users_v1',
-  CURRENT_USER_ID: 'nota_current_user_id_v1',
-  LOGS: 'nota_daily_logs_v1',
-  SERMONS: 'nota_sermons_v1',
-  NOTES: 'nota_servant_notes_v1',
-  APPROVALS: 'nota_approvals_v1',
-  OFFLINE_QUEUE: 'nota_offline_queue_v1',
+  USERS: 'nota_users_v2',
+  CURRENT_USER_ID: 'nota_current_user_id_v2',
+  LOGS: 'nota_daily_logs_v2',
+  SERMONS: 'nota_sermons_v2',
+  NOTES: 'nota_servant_notes_v2',
+  APPROVALS: 'nota_approvals_v2',
+  REGISTRATIONS: 'nota_registrations_v2',
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [syncStatus, setSyncStatus] = useState<'synced' | 'pending_sync' | 'offline'>('synced');
-  const [offlineQueue, setOfflineQueue] = useState<OfflineAction[]>([]);
 
-  // Users state
+  // All Users
   const [allUsers, setAllUsers] = useState<UserProfile[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEYS.USERS);
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch {
-          // fallback
-        }
+        } catch {}
       }
     }
     return SEED_PROFILES;
   });
 
-  // Current active user (default is youth-1 to experience the youth PWA immediately)
-  const [currentUserId, setCurrentUserId] = useState<string>(() => {
+  // Current Logged in User ID (null means auth screen is shown)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
       if (saved) return saved;
     }
-    return 'youth-1';
+    return null; // Require login upon entry!
   });
 
-  const currentUser = allUsers.find((u) => u.uid === currentUserId) || allUsers[0];
+  const currentUser = allUsers.find((u) => u.uid === currentUserId && u.status === 'active') || null;
+
+  // Registration Requests
+  const [registrationRequests, setRegistrationRequests] = useState<RegistrationRequest[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEYS.REGISTRATIONS);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {}
+      }
+    }
+    return SEED_REGISTRATIONS;
+  });
 
   // Daily Logs
   const today = getTodayDateString();
@@ -103,18 +137,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (saved) {
         try {
           return JSON.parse(saved);
-        } catch {
-          // fallback
-        }
+        } catch {}
       }
     }
     return {
       [`youth-1-${today}`]: getDefaultDailyLog('youth-1', today),
     };
   });
-
-  const logKey = `${currentUser.uid}-${today}`;
-  const currentDailyLog = dailyLogs[logKey] || getDefaultDailyLog(currentUser.uid, today);
 
   // Sermons
   const [sermons, setSermons] = useState<Sermon[]>(() => {
@@ -155,41 +184,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return SEED_APPROVALS;
   });
 
-  // Network listener & offline queue processing
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      // Simulate sync with cloud / Firebase
-      if (offlineQueue.length > 0) {
-        setSyncStatus('pending_sync');
-        setTimeout(() => {
-          setOfflineQueue([]);
-          localStorage.removeItem(STORAGE_KEYS.OFFLINE_QUEUE);
-          setSyncStatus('synced');
-        }, 1200);
-      } else {
-        setSyncStatus('synced');
-      }
-    };
-
-    const handleOffline = () => {
-      setIsOnline(false);
-      setSyncStatus('offline');
-    };
-
-    setIsOnline(navigator.onLine);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [offlineQueue]);
-
-  // Save changes to localStorage
+  // Persistence effects
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(allUsers));
@@ -197,7 +192,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
+    if (currentUserId) {
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, currentUserId);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+    }
   }, [currentUserId]);
 
   useEffect(() => {
@@ -220,38 +219,209 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem(STORAGE_KEYS.APPROVALS, JSON.stringify(approvalRequests));
   }, [approvalRequests]);
 
-  const recordOfflineAction = (action: OfflineAction) => {
-    const updated = [...offlineQueue, action];
-    setOfflineQueue(updated);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(updated));
-    }
-    if (!isOnline) {
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEYS.REGISTRATIONS, JSON.stringify(registrationRequests));
+  }, [registrationRequests]);
+
+  // Online / Offline listener
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      setSyncStatus('synced');
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
       setSyncStatus('offline');
+    };
+    setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const login = (email: string): { success: boolean; message?: string } => {
+    const user = allUsers.find(
+      (u) => u.email.trim().toLowerCase() === email.trim().toLowerCase()
+    );
+    if (!user) {
+      return { success: false, message: 'البريد الإلكتروني غير مسجل بالنظام.' };
     }
+    if (user.status === 'pending_approval') {
+      const target = user.role === 'servant' ? 'أمين الخدمة' : 'خادمك المسؤول';
+      return {
+        success: false,
+        message: `حسابك قيد المراجعة حالياً، بانتظار موافقة ${target} لتفعيل الحساب.`,
+      };
+    }
+    if (user.status === 'rejected') {
+      return { success: false, message: 'تم رفض طلب التسجيل من قِبل مسؤول الخدمة.' };
+    }
+    setCurrentUserId(user.uid);
+    return { success: true };
   };
 
-  const switchUser = (uid: string) => {
-    setCurrentUserId(uid);
+  const quickDemoLogin = (role: UserRole, uid?: string) => {
+    if (uid) {
+      setCurrentUserId(uid);
+      return;
+    }
+    const defaultForRole: Record<UserRole, string> = {
+      youth: 'youth-1',
+      servant: 'servant-1',
+      admin: 'admin-1',
+    };
+    setCurrentUserId(defaultForRole[role]);
   };
+
+  const logout = () => {
+    setCurrentUserId(null);
+  };
+
+  const registerUser = (data: {
+    userName: string;
+    email: string;
+    phone?: string;
+    role: 'servant' | 'youth';
+    assignedServantId?: string;
+    churchGroup?: string;
+  }): { success: boolean; message: string } => {
+    const existing = allUsers.find((u) => u.email.toLowerCase() === data.email.toLowerCase());
+    if (existing) {
+      return { success: false, message: 'البريد الإلكتروني مسجل بالفعل!' };
+    }
+
+    const newUserId = `user-${Date.now()}`;
+    const assignedServant = allUsers.find((u) => u.uid === data.assignedServantId);
+
+    const newUser: UserProfile = {
+      uid: newUserId,
+      email: data.email,
+      displayName: data.userName,
+      phone: data.phone,
+      role: data.role,
+      status: 'pending_approval',
+      currentStreak: 0,
+      totalTasksCompleted: 0,
+      assignedServantId: data.role === 'youth' ? data.assignedServantId : undefined,
+      assignedServantName: data.role === 'youth' ? assignedServant?.displayName : undefined,
+      churchGroup: data.churchGroup || 'شباب كنيسة العذراء بالإسماعيلية',
+      assignedReading: data.role === 'youth' ? {
+        bookId: 'malachi',
+        bookName: 'سفر ملاخي',
+        testament: 'old',
+        totalChapters: 4,
+        currentChapter: 1,
+        isCompleted: false,
+        assignedBy: data.assignedServantId || 'admin-1',
+        assignedByName: assignedServant?.displayName || 'أمين الخدمة',
+        assignedAt: new Date().toISOString().split('T')[0],
+      } : undefined,
+      createdAt: new Date().toISOString(),
+    };
+
+    const newRegistrationRequest: RegistrationRequest = {
+      id: `reg-${Date.now()}`,
+      userId: newUserId,
+      userName: data.userName,
+      email: data.email,
+      phone: data.phone,
+      role: data.role,
+      assignedServantId: data.role === 'youth' ? data.assignedServantId : undefined,
+      assignedServantName: data.role === 'youth' ? assignedServant?.displayName : undefined,
+      targetApproverRole: data.role === 'servant' ? 'admin' : 'servant',
+      targetApproverId: data.role === 'youth' ? data.assignedServantId : undefined,
+      churchGroup: newUser.churchGroup,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+
+    setAllUsers((prev) => [...prev, newUser]);
+    setRegistrationRequests((prev) => [newRegistrationRequest, ...prev]);
+
+    const targetNotice = data.role === 'servant'
+      ? 'تم إرسال طلبك لأمين الخدمة (Admin) للموافقة على تفعيل حساب الخادم.'
+      : `تم إرسال طلبك للخادم المسؤول (${assignedServant?.displayName || 'خادمك'}) للموافقة والاعتماد.`;
+
+    return {
+      success: true,
+      message: targetNotice,
+    };
+  };
+
+  const handleRegistrationDecision = (
+    requestId: string,
+    decision: 'approved' | 'rejected'
+  ) => {
+    const req = registrationRequests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    setRegistrationRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: decision } : r))
+    );
+
+    setAllUsers((prev) =>
+      prev.map((u) => {
+        if (u.uid === req.userId) {
+          return {
+            ...u,
+            status: decision === 'approved' ? 'active' : 'rejected',
+            approvedBy: currentUser?.displayName,
+            approvedAt: new Date().toISOString(),
+          };
+        }
+        // If approved youth, add to servant's assignedYouthIds
+        if (req.role === 'youth' && decision === 'approved' && u.uid === req.assignedServantId) {
+          const currentYouths = u.assignedYouthIds || [];
+          return {
+            ...u,
+            assignedYouthIds: Array.from(new Set([...currentYouths, req.userId])),
+          };
+        }
+        return u;
+      })
+    );
+  };
+
+  const getUserDailyLog = (userId: string): DailyHabitLog => {
+    const key = `${userId}-${today}`;
+    return dailyLogs[key] || getDefaultDailyLog(userId, today);
+  };
+
+  const currentDailyLog = currentUser
+    ? getUserDailyLog(currentUser.uid)
+    : getDefaultDailyLog('anonymous', today);
 
   const markTaskComplete = (
     taskType: HabitType,
     answer: string,
     questionId: string,
-    timeSpentSeconds: number
+    timeSpentSeconds: number,
+    questionText?: string
   ) => {
+    if (!currentUser) return;
+    const logKey = `${currentUser.uid}-${today}`;
     const prevLog = dailyLogs[logKey] || getDefaultDailyLog(currentUser.uid, today);
     const wasAlreadyCompleted = prevLog.tasks[taskType]?.completed;
+
+    const currentPlan = currentUser.assignedReading;
+    const isBible = taskType === 'bible';
 
     const updatedTasks = {
       ...prevLog.tasks,
       [taskType]: {
         completed: true,
         completedAt: new Date().toISOString(),
+        questionText,
         reflectionAnswer: answer,
         questionId,
         timeSpentSeconds,
+        bookName: isBible ? currentPlan?.bookName : undefined,
+        chapterNumber: isBible ? currentPlan?.currentChapter : undefined,
       },
     };
 
@@ -271,30 +441,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       [logKey]: newLog,
     }));
 
-    // Update user stats and streak if newly completed all 4 tasks
+    // Update user stats, reading progress & streak
     if (!wasAlreadyCompleted) {
       setAllUsers((prevUsers) =>
         prevUsers.map((u) => {
           if (u.uid === currentUser.uid) {
-            const newTasksTotal = u.totalTasksCompleted + 1;
-            const newStreak = shapeUnlocked ? u.currentStreak + 1 : u.currentStreak;
+            let updatedPlan = u.assignedReading;
+
+            if (isBible && updatedPlan && !updatedPlan.isCompleted) {
+              const nextChapter = updatedPlan.currentChapter + 1;
+              const hasFinishedBook = nextChapter > updatedPlan.totalChapters;
+              updatedPlan = {
+                ...updatedPlan,
+                currentChapter: hasFinishedBook ? updatedPlan.totalChapters : nextChapter,
+                isCompleted: hasFinishedBook,
+              };
+            }
+
             return {
               ...u,
-              totalTasksCompleted: newTasksTotal,
-              currentStreak: newStreak,
+              totalTasksCompleted: u.totalTasksCompleted + 1,
+              currentStreak: shapeUnlocked ? u.currentStreak + 1 : u.currentStreak,
+              assignedReading: updatedPlan,
             };
           }
           return u;
         })
       );
     }
+  };
 
-    recordOfflineAction({
-      id: `act-${Date.now()}`,
-      type: 'log_task',
-      payload: { userId: currentUser.uid, date: today, taskType, answer },
-      timestamp: Date.now(),
-    });
+  const assignReadingPlanToYouth = (
+    youthId: string,
+    bookName: string,
+    totalChapters: number
+  ) => {
+    setAllUsers((prev) =>
+      prev.map((u) => {
+        if (u.uid === youthId) {
+          return {
+            ...u,
+            assignedReading: {
+              bookId: bookName.toLowerCase().replace(/\s+/g, '-'),
+              bookName,
+              testament: 'old',
+              totalChapters,
+              currentChapter: 1,
+              isCompleted: false,
+              assignedBy: currentUser?.uid || 'admin-1',
+              assignedByName: currentUser?.displayName || 'الخادم',
+              assignedAt: new Date().toISOString().split('T')[0],
+            },
+          };
+        }
+        return u;
+      })
+    );
   };
 
   const addSermon = (sermonData: Omit<Sermon, 'id' | 'addedAt' | 'watchedByUserIds'>) => {
@@ -305,16 +507,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       watchedByUserIds: [],
     };
     setSermons((prev) => [newSermon, ...prev]);
-
-    recordOfflineAction({
-      id: `act-${Date.now()}`,
-      type: 'add_note',
-      payload: newSermon,
-      timestamp: Date.now(),
-    });
   };
 
   const toggleSermonWatched = (sermonId: string) => {
+    if (!currentUser) return;
     setSermons((prev) =>
       prev.map((s) => {
         if (s.id === sermonId) {
@@ -336,13 +532,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setServantNotes((prev) => [newNote, ...prev]);
-
-    recordOfflineAction({
-      id: `act-${Date.now()}`,
-      type: 'add_note',
-      payload: newNote,
-      timestamp: Date.now(),
-    });
   };
 
   const submitApprovalRequest = (
@@ -355,13 +544,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
     setApprovalRequests((prev) => [newReq, ...prev]);
-
-    recordOfflineAction({
-      id: `act-${Date.now()}`,
-      type: 'request_approval',
-      payload: newReq,
-      timestamp: Date.now(),
-    });
   };
 
   const handleApprovalDecision = (
@@ -375,7 +557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           return {
             ...req,
             status,
-            reviewedBy: currentUser.displayName,
+            reviewedBy: currentUser?.displayName,
             reviewedAt: new Date().toISOString(),
             reviewComment,
           };
@@ -384,7 +566,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
 
-    // If approved, apply the suggested action
     const req = approvalRequests.find((r) => r.id === requestId);
     if (req && status === 'approved') {
       if (req.type === 'streak_recovery' && req.suggestedData?.restoreDays) {
@@ -403,18 +584,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Monthly Servant Rotation Feature (Admin capability)
   const rotateServantsMonthly = () => {
-    const servants = allUsers.filter((u) => u.role === 'servant');
-    const youths = allUsers.filter((u) => u.role === 'youth');
+    const servants = allUsers.filter((u) => u.role === 'servant' && u.status === 'active');
+    const youths = allUsers.filter((u) => u.role === 'youth' && u.status === 'active');
     if (servants.length === 0 || youths.length === 0) return;
 
-    // Shift rotation: reassign each youth to the next servant in round-robin fashion
     const updatedYouths = youths.map((youth, idx) => {
       const assignedServant = servants[(idx + 1) % servants.length];
       return {
         ...youth,
         assignedServantId: assignedServant.uid,
+        assignedServantName: assignedServant.displayName,
       };
     });
 
@@ -438,10 +618,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const reassignYouth = (youthId: string, servantId: string) => {
+    const targetServant = allUsers.find((u) => u.uid === servantId);
     setAllUsers((prev) =>
       prev.map((u) => {
         if (u.uid === youthId) {
-          return { ...u, assignedServantId: servantId };
+          return {
+            ...u,
+            assignedServantId: servantId,
+            assignedServantName: targetServant?.displayName,
+          };
         }
         if (u.role === 'servant') {
           const currentYouths = u.assignedYouthIds || [];
@@ -463,6 +648,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const setYouthStreakDirectly = (streakCount: number) => {
+    if (!currentUser) return;
     setAllUsers((prev) =>
       prev.map((u) => {
         if (u.uid === currentUser.uid) {
@@ -482,10 +668,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         sermons,
         servantNotes,
         approvalRequests,
+        registrationRequests,
         isOnline,
         syncStatus,
-        switchUser,
+        login,
+        quickDemoLogin,
+        switchUser: (uid: string) => setCurrentUserId(uid),
+        logout,
+        registerUser,
+        handleRegistrationDecision,
         markTaskComplete,
+        assignReadingPlanToYouth,
+        getUserDailyLog,
         addSermon,
         toggleSermonWatched,
         addServantNote,

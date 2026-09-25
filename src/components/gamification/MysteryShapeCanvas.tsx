@@ -1,20 +1,20 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Sparkles, Eye, Lock, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Trophy, Lock, CheckCircle2 } from 'lucide-react';
 
 interface MysteryShapeCanvasProps {
-  completedCount: number; // 0 to 4
-  totalTarget: number;    // 4
-  shapeUnlocked: boolean;
+  currentStreakDays: number; // 0 to 30 days in the month
+  totalMonthDays?: number;   // default 30
 }
 
 export const MysteryShapeCanvas: React.FC<MysteryShapeCanvasProps> = ({
-  completedCount,
-  totalTarget,
-  shapeUnlocked,
+  currentStreakDays,
+  totalMonthDays = 30,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isMonthComplete = currentStreakDays >= totalMonthDays;
+  const clampedDays = Math.min(currentStreakDays, totalMonthDays);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,189 +22,237 @@ export const MysteryShapeCanvas: React.FC<MysteryShapeCanvasProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let animationFrameId: number;
-    const width = (canvas.width = canvas.parentElement?.clientWidth || 360);
-    const height = (canvas.height = 240);
+    let animationId: number;
+    const width = (canvas.width = canvas.parentElement?.clientWidth || 480);
+    const height = (canvas.height = 320);
 
-    const centerX = width / 2;
-    const centerY = height / 2;
-
-    // Cross and sacred halo points normalized to center
-    const crossPoints = [
-      { x: centerX, y: centerY - 65 }, // Top
-      { x: centerX, y: centerY + 65 }, // Bottom
-      { x: centerX - 50, y: centerY - 15 }, // Left
-      { x: centerX + 50, y: centerY - 15 }, // Right
-      // Coptic Cross ornaments (trilobed ends)
-      { x: centerX - 12, y: centerY - 65 },
-      { x: centerX + 12, y: centerY - 65 },
-      { x: centerX - 12, y: centerY + 65 },
-      { x: centerX + 12, y: centerY + 65 },
-      { x: centerX - 50, y: centerY - 27 },
-      { x: centerX - 50, y: centerY - 3 },
-      { x: centerX + 50, y: centerY - 27 },
-      { x: centerX + 50, y: centerY - 3 },
-      // Central sunburst circle points
-      { x: centerX - 20, y: centerY - 35 },
-      { x: centerX + 20, y: centerY - 35 },
-      { x: centerX - 20, y: centerY + 5 },
-      { x: centerX + 20, y: centerY + 5 },
-    ];
-
+    const cx = width / 2;
+    const cy = height / 2;
     let t = 0;
 
     const render = () => {
-      t += 0.03;
+      t += 0.025;
       ctx.clearRect(0, 0, width, height);
 
-      // Deep celestial spiritual background gradient
-      const bgGrad = ctx.createRadialGradient(
-        centerX,
-        centerY,
-        10,
-        centerX,
-        centerY,
-        width / 1.5
-      );
-      bgGrad.addColorStop(0, '#1E1B4B');
-      bgGrad.addColorStop(1, '#0B0F19');
+      // Light, elegant sacred parchment background
+      const bgGrad = ctx.createRadialGradient(cx, cy, 30, cx, cy, width / 1.4);
+      bgGrad.addColorStop(0, '#FEFDF8');
+      bgGrad.addColorStop(0.7, '#FDF6E2');
+      bgGrad.addColorStop(1, '#F3E8CB');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, width, height);
 
-      // Ambient background stardust
-      for (let i = 0; i < 30; i++) {
-        const starX = (Math.sin(i * 99 + t * 0.1) * 0.5 + 0.5) * width;
-        const starY = (Math.cos(i * 33 + t * 0.1) * 0.5 + 0.5) * height;
-        const alpha = Math.abs(Math.sin(t + i)) * 0.4 + 0.1;
-        ctx.fillStyle = `rgba(212, 175, 55, ${alpha})`;
+      // Delicate Orthodox decorative border
+      ctx.strokeStyle = '#D97706';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(10, 10, width - 20, height - 20);
+      ctx.strokeStyle = '#FDE68A';
+      ctx.strokeRect(14, 14, width - 28, height - 28);
+
+      // Sacred rays of divine light
+      const rayAlpha = isMonthComplete ? 0.35 + Math.sin(t * 2) * 0.1 : 0.08;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(t * 0.08);
+      for (let i = 0; i < 16; i++) {
         ctx.beginPath();
-        ctx.arc(starX, starY, (i % 3) + 0.5, 0, Math.PI * 2);
-        ctx.fill();
+        const angle = (i * Math.PI) / 8;
+        ctx.moveTo(0, 0);
+        ctx.lineTo(Math.cos(angle) * 180, Math.sin(angle) * 180);
+        ctx.strokeStyle = `rgba(217, 119, 6, ${rayAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
       }
+      ctx.restore();
 
-      if (completedCount === 0) {
-        // Mysterious Empty Canvas with subtle question mark pulse
-        ctx.fillStyle = 'rgba(212, 175, 55, 0.25)';
-        ctx.font = 'bold 36px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('؟', centerX, centerY);
-        return;
-      }
+      // 30 Mosaic Segments calculation (5 rows x 6 columns)
+      const rows = 5;
+      const cols = 6;
+      const marginX = 26;
+      const marginY = 26;
+      const gridW = width - marginX * 2;
+      const gridH = height - marginY * 2;
+      const cellW = gridW / cols;
+      const cellH = gridH / rows;
 
-      // Draw revealed points according to completed count
-      const revealFraction = Math.min(completedCount / totalTarget, 1);
-      const pointsToDraw = Math.floor(crossPoints.length * revealFraction);
-
-      // Connect points with glowing spiritual strings
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = shapeUnlocked
-        ? `rgba(245, 158, 11, ${0.7 + Math.sin(t * 2) * 0.2})`
-        : 'rgba(212, 175, 55, 0.4)';
-
+      // Draw the underlying authentic Coptic Orthodox Cross Icon
+      ctx.save();
+      // Clip region to revealed cells
       ctx.beginPath();
-      for (let i = 0; i < pointsToDraw; i++) {
-        const pt = crossPoints[i];
-        if (i === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const index = r * cols + c + 1;
+          if (index <= clampedDays) {
+            ctx.rect(marginX + c * cellW, marginY + r * cellH, cellW, cellH);
+          }
+        }
       }
+      ctx.clip();
+
+      // --- AUTHENTIC COPTIC CROSS & HALO DRAWING ---
+      // Radiant central halo
+      const haloGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 95);
+      haloGrad.addColorStop(0, '#FEF08A');
+      haloGrad.addColorStop(0.5, '#FDE047');
+      haloGrad.addColorStop(1, 'rgba(217, 119, 6, 0.2)');
+      ctx.fillStyle = haloGrad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 95, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Halo gold rings
+      ctx.strokeStyle = '#B45309';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 90, 0, Math.PI * 2);
       ctx.stroke();
 
-      // If fully unlocked (4/4), draw the glowing Coptic Cross with divine rays
-      if (shapeUnlocked) {
-        // Divine radiance rays
-        ctx.save();
-        ctx.translate(centerX, centerY - 15);
-        ctx.rotate(t * 0.15);
-        for (let ray = 0; ray < 8; ray++) {
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(251, 191, 36, ${0.15 + Math.sin(t + ray) * 0.08})`;
-          ctx.lineWidth = 1.5;
-          ctx.moveTo(0, 0);
-          const rayAngle = (ray * Math.PI) / 4;
-          ctx.lineTo(Math.cos(rayAngle) * 95, Math.sin(rayAngle) * 95);
-          ctx.stroke();
+      ctx.strokeStyle = '#D97706';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Coptic Cross Vertical Beam
+      ctx.fillStyle = '#B45309';
+      ctx.shadowColor = 'rgba(217, 119, 6, 0.4)';
+      ctx.shadowBlur = 12;
+
+      // Vertical shaft
+      ctx.fillRect(cx - 14, cy - 90, 28, 180);
+      // Horizontal shaft
+      ctx.fillRect(cx - 75, cy - 14, 150, 28);
+
+      // Gold inner inlay
+      ctx.fillStyle = '#FBBF24';
+      ctx.fillRect(cx - 8, cy - 82, 16, 164);
+      ctx.fillRect(cx - 67, cy - 8, 134, 16);
+
+      // Coptic Tri-lobed finials (أطراف الصليب القبطي الثلاثية المزخرفة)
+      const drawCopticFinial = (x: number, y: number, radius: number) => {
+        ctx.fillStyle = '#D97706';
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#FEF08A';
+        ctx.beginPath();
+        ctx.arc(x, y, radius * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      };
+
+      // Top trilobes
+      drawCopticFinial(cx, cy - 98, 12);
+      drawCopticFinial(cx - 16, cy - 94, 9);
+      drawCopticFinial(cx + 16, cy - 94, 9);
+
+      // Bottom trilobes
+      drawCopticFinial(cx, cy + 98, 12);
+      drawCopticFinial(cx - 16, cy + 94, 9);
+      drawCopticFinial(cx + 16, cy + 94, 9);
+
+      // Left trilobes
+      drawCopticFinial(cx - 83, cy, 12);
+      drawCopticFinial(cx - 79, cy - 16, 9);
+      drawCopticFinial(cx - 79, cy + 16, 9);
+
+      // Right trilobes
+      drawCopticFinial(cx + 83, cy, 12);
+      drawCopticFinial(cx + 79, cy - 16, 9);
+      drawCopticFinial(cx + 79, cy + 16, 9);
+
+      // Center sacred emblem & Dove of Peace
+      ctx.fillStyle = '#FFFFFF';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#D97706';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Coptic Inscription (IC XC NIKA - يسوع المسيح يغلب)
+      ctx.fillStyle = '#92400E';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('ⲒⲤ ⲬⲤ', cx, cy - 40);
+      ctx.fillText('ⲚⲒⲔⲀ', cx, cy + 50);
+
+      // Cross center emblem (Holy Dove / Chi-Rho)
+      ctx.fillStyle = '#B45309';
+      ctx.font = 'bold 15px sans-serif';
+      ctx.fillText('☩', cx, cy + 5);
+
+      ctx.restore();
+
+      // Draw Mystery Grid overlay (revealed vs unrevealed mosaic tiles)
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const index = r * cols + c + 1;
+          const x = marginX + c * cellW;
+          const y = marginY + r * cellH;
+
+          if (index > clampedDays) {
+            // Mystery unrevealed tile with golden parchment seal
+            ctx.fillStyle = '#F3E8CB';
+            ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2);
+
+            ctx.strokeStyle = '#E2D3B3';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x + 1, y + 1, cellW - 2, cellH - 2);
+
+            // Subtle day number watermark
+            ctx.fillStyle = 'rgba(180, 83, 9, 0.25)';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${index}`, x + cellW / 2, y + cellH / 2);
+          } else {
+            // Revealed cell border with slight stained-glass shimmer
+            ctx.strokeStyle = 'rgba(217, 119, 6, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, cellW, cellH);
+          }
         }
-        ctx.restore();
-
-        // Central cross vertical beam
-        ctx.lineWidth = 8;
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#FBBF24';
-        ctx.shadowColor = '#F59E0B';
-        ctx.shadowBlur = 18;
-
-        ctx.beginPath();
-        ctx.moveTo(centerX, centerY - 65);
-        ctx.lineTo(centerX, centerY + 55);
-        ctx.stroke();
-
-        // Horizontal beam
-        ctx.beginPath();
-        ctx.moveTo(centerX - 45, centerY - 15);
-        ctx.lineTo(centerX + 45, centerY - 15);
-        ctx.stroke();
-
-        // Central halo ring
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(centerX, centerY - 15, 26, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
       }
 
-      // Draw active shimmering dots
-      for (let i = 0; i < pointsToDraw; i++) {
-        const pt = crossPoints[i];
-        const pulse = Math.sin(t * 3 + i) * 2;
-        const radius = shapeUnlocked ? 4.5 + pulse * 0.5 : 3 + pulse * 0.4;
-
-        ctx.fillStyle = shapeUnlocked ? '#FEF08A' : '#D4AF37';
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, Math.max(1, radius), 0, Math.PI * 2);
-        ctx.fill();
-
-        // Aura around dots
-        ctx.fillStyle = shapeUnlocked
-          ? 'rgba(251, 191, 36, 0.4)'
-          : 'rgba(212, 175, 55, 0.25)';
-        ctx.beginPath();
-        ctx.arc(pt.x, pt.y, radius * 2.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      animationFrameId = requestAnimationFrame(render);
+      animationId = requestAnimationFrame(render);
     };
 
     render();
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      cancelAnimationFrame(animationId);
     };
-  }, [completedCount, totalTarget, shapeUnlocked]);
+  }, [clampedDays, totalMonthDays, isMonthComplete]);
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-950 p-4 shadow-xl">
-      {/* Header bar */}
-      <div className="mb-3 flex items-center justify-between">
+    <div className="overflow-hidden rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+      {/* Header */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-amber-400 animate-pulse" />
-          <h3 className="font-semibold text-amber-100">
-            لوحة الأشكال الروحية الغامضة (Mystery Shape)
-          </h3>
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+              أيقونة الشهر الأرثوذكسية (Mystery Orthodox Icon)
+            </h3>
+            <p className="text-xs text-slate-500">
+              تكتمل اللوحة المقدسة بنهاية الـ 30 يوماً؛ كل يوم التزام يكشف قطعة فسيفساء من أيقونة الصليب المنير
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300 border border-amber-500/20">
-          {shapeUnlocked ? (
+
+        <div className="flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200">
+          {isMonthComplete ? (
             <>
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-              <span>اكتمل الكشف الروحي اليوم!</span>
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <span>اكتملت الأيقونة بالكامل! مبارك التزامك الشهري</span>
             </>
           ) : (
             <>
-              <Lock className="h-3.5 w-3.5" />
+              <Lock className="h-3.5 w-3.5 text-amber-600" />
               <span>
-                {completedCount} من {totalTarget} أجزاء مكشوفة
+                {clampedDays} من {totalMonthDays} يوماً مكشوفة
               </span>
             </>
           )}
@@ -212,27 +260,29 @@ export const MysteryShapeCanvas: React.FC<MysteryShapeCanvasProps> = ({
       </div>
 
       {/* Canvas Box */}
-      <div className="relative flex justify-center items-center rounded-xl overflow-hidden border border-slate-800 bg-slate-900/60">
+      <div className="relative flex justify-center items-center rounded-xl overflow-hidden border border-amber-100 bg-amber-50/30">
         <canvas
           ref={canvasRef}
-          className="w-full h-56 block cursor-pointer transition-transform hover:scale-[1.01]"
+          className="w-full max-w-xl h-64 sm:h-72 block cursor-pointer transition-transform"
         />
 
-        {/* Overlay banner when finished */}
-        {shapeUnlocked && (
-          <div className="absolute bottom-2 inset-x-2 rounded-lg bg-slate-900/85 backdrop-blur-md border border-amber-500/40 p-2 text-center text-xs text-amber-200 animate-fade-in flex items-center justify-center gap-2">
-            <Eye className="h-4 w-4 text-amber-400" />
+        {isMonthComplete && (
+          <div className="absolute bottom-3 inset-x-4 rounded-xl bg-white/95 backdrop-blur-sm border border-amber-300 p-2.5 text-center shadow-md animate-fade-in flex items-center justify-center gap-2 text-xs font-bold text-amber-900">
+            <Trophy className="h-4 w-4 text-amber-600" />
             <span>
-              <strong>طوبى لأنقياء القلب:</strong> لقد اكتمل شكل الصليب والنور المقدس اليوم لأمانتك في كل بنود القانون الروحي!
+              «كُنْتَ أَمِينًا فِي الْقَلِيلِ» — اكتملت أيقونة الصليب القبطي المنير والنور الإلهي بالكامل لشهر مبارك!
             </span>
           </div>
         )}
       </div>
 
-      {/* Atomic Habits Tip */}
-      <p className="mt-2 text-center text-[11px] text-slate-400">
-        كل بند روحي تنجزه يضيف نقطة نور إلى اللوحة؛ إتمام جميع بنود اليوم يكشف الشكل المقدس بالكامل.
-      </p>
+      {/* Footer Info */}
+      <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+        <span>متبقي {Math.max(0, totalMonthDays - clampedDays)} يوماً لاكتمال الأيقونة بالكامل</span>
+        <span className="font-semibold text-amber-700">
+          نسبة الكشف: {Math.round((clampedDays / totalMonthDays) * 100)}%
+        </span>
+      </div>
     </div>
   );
 };

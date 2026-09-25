@@ -11,6 +11,7 @@ interface HabitCardProps {
   frequency: string;
   record?: TaskCompletionRecord;
   onOpenValidation: (type: HabitType) => void;
+  disabled?: boolean;
 }
 
 export const HabitCard: React.FC<HabitCardProps> = ({
@@ -20,37 +21,42 @@ export const HabitCard: React.FC<HabitCardProps> = ({
   frequency,
   record,
   onOpenValidation,
+  disabled = false,
 }) => {
   const isDone = !!record?.completed;
 
   const getIcon = () => {
     switch (type) {
       case 'bible':
-        return <BookOpen className="h-6 w-6 text-amber-400" />;
+        return <BookOpen className="h-6 w-6 text-amber-600" />;
       case 'prayer':
-        return <Sparkles className="h-6 w-6 text-sky-400" />;
+        return <Sparkles className="h-6 w-6 text-sky-600" />;
       case 'communion':
-        return <HeartHandshake className="h-6 w-6 text-rose-400" />;
+        return <HeartHandshake className="h-6 w-6 text-rose-600" />;
       case 'confession':
-        return <Clock className="h-6 w-6 text-emerald-400" />;
+        return <Clock className="h-6 w-6 text-emerald-600" />;
     }
   };
 
   return (
     <div
-      onClick={() => onOpenValidation(type)}
-      className={`group relative flex items-center justify-between rounded-2xl border p-4 transition-all cursor-pointer ${
-        isDone
-          ? 'border-emerald-500/40 bg-emerald-950/20 hover:bg-emerald-950/30 shadow-md shadow-emerald-900/10'
-          : 'border-slate-800 bg-slate-900/70 hover:border-amber-500/50 hover:bg-slate-800/80 shadow-sm'
+      onClick={() => {
+        if (!disabled) onOpenValidation(type);
+      }}
+      className={`group relative flex items-center justify-between rounded-2xl border p-4 transition-all ${
+        disabled
+          ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200'
+          : isDone
+          ? 'border-emerald-200 bg-emerald-50/50 hover:bg-emerald-50 cursor-pointer shadow-sm'
+          : 'border-slate-200 bg-white hover:border-amber-400 hover:shadow-md cursor-pointer'
       }`}
     >
       <div className="flex items-center gap-3.5">
         <div
           className={`flex h-12 w-12 items-center justify-center rounded-xl border transition-transform group-hover:scale-105 ${
             isDone
-              ? 'border-emerald-500/30 bg-emerald-500/10'
-              : 'border-slate-700 bg-slate-800/60'
+              ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+              : 'border-slate-100 bg-slate-50'
           }`}
         >
           {getIcon()}
@@ -60,21 +66,20 @@ export const HabitCard: React.FC<HabitCardProps> = ({
           <div className="flex items-center gap-2">
             <h4
               className={`font-bold text-sm sm:text-base ${
-                isDone ? 'text-emerald-200 line-through decoration-emerald-500/40' : 'text-slate-100'
+                isDone ? 'text-emerald-900 line-through decoration-emerald-400' : 'text-slate-800'
               }`}
             >
               {title}
             </h4>
-            <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-400 border border-slate-700">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 border border-slate-200">
               {frequency}
             </span>
           </div>
-          <p className="text-xs text-slate-400 mt-0.5 line-clamp-1">{subtitle}</p>
+          <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{subtitle}</p>
 
-          {/* If completed, show excerpt of reflection */}
           {isDone && record?.reflectionAnswer && (
-            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-400/90 font-medium">
-              <span>تأملك: &quot;{record.reflectionAnswer.slice(0, 45)}...&quot;</span>
+            <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-emerald-700 font-medium">
+              <span>تأملك: &quot;{record.reflectionAnswer.slice(0, 50)}...&quot;</span>
             </div>
           )}
         </div>
@@ -82,12 +87,14 @@ export const HabitCard: React.FC<HabitCardProps> = ({
 
       <div className="flex items-center gap-2">
         {isDone ? (
-          <div className="flex items-center gap-1.5 rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-500/30">
-            <CheckCircle2 className="h-4 w-4" />
+          <div className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 border border-emerald-300">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
             <span className="hidden sm:inline">تم الإنجاز</span>
           </div>
+        ) : disabled ? (
+          <span className="text-[11px] text-slate-400">بانتظار سفر جديد</span>
         ) : (
-          <div className="flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-500/20 group-hover:bg-amber-500 group-hover:text-slate-950 transition-colors">
+          <div className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 border border-amber-200 group-hover:bg-amber-500 group-hover:text-white transition-colors">
             <span>تسجيل وتأمل</span>
             <ChevronLeft className="h-4 w-4" />
           </div>
