@@ -19,6 +19,7 @@ export const AuthScreen: React.FC = () => {
   // Login form state
   const [rawCode, setRawCode] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
   // Register form state
@@ -42,7 +43,7 @@ export const AuthScreen: React.FC = () => {
     setLoginError('');
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
     const clean = clean14DigitCode(rawCode);
@@ -51,7 +52,9 @@ export const AuthScreen: React.FC = () => {
       return;
     }
 
-    const res = loginWithCode(clean);
+    setIsLoginLoading(true);
+    const res = await loginWithCode(clean);
+    setIsLoginLoading(false);
     if (!res.success) {
       setLoginError(res.message || 'كود الدخول غير صحيح.');
     }
@@ -197,18 +200,19 @@ export const AuthScreen: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-white shadow-md shadow-amber-200 hover:bg-amber-600 active:scale-[0.99] transition-all"
+                disabled={isLoginLoading}
+                className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-white shadow-md shadow-amber-200 hover:bg-amber-600 active:scale-[0.99] transition-all disabled:opacity-60 flex items-center justify-center gap-2"
               >
-                دخول إلى النوتة الروحية
+                {isLoginLoading ? 'جاري التحقق الآمن...' : 'دخول إلى النوتة الروحية'}
               </button>
             </form>
 
             {/* Quick Biometrics Authentication Button */}
             <div className="pt-2">
               <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-slate-200"></div>
-                <span className="flex-shrink mx-3 text-[11px] font-bold text-slate-400">أو</span>
-                <div className="flex-grow border-t border-slate-200"></div>
+                <div className="grow border-t border-slate-200"></div>
+                <span className="shrink mx-3 text-[11px] font-bold text-slate-400">أو</span>
+                <div className="grow border-t border-slate-200"></div>
               </div>
 
               <button

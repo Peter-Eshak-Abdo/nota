@@ -18,7 +18,7 @@ export const ServantMessagesBox: React.FC<ServantMessagesBoxProps> = ({
   const unreadCount = messages.filter((m) => !m.read).length;
 
   return (
-    <div className="rounded-2xl border border-sky-200 bg-gradient-to-r from-sky-50 via-white to-sky-50/50 p-5 shadow-sm">
+    <div className="rounded-2xl border border-sky-200 bg-linear-to-r from-sky-50 via-white to-sky-50/50 p-5 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-100 text-sky-700">

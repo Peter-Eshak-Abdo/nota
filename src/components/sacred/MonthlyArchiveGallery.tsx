@@ -37,7 +37,7 @@ export const MonthlyArchiveGallery: React.FC<MonthlyArchiveGalleryProps> = ({ ar
         {archives.map((arch) => (
           <div
             key={arch.id}
-            className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50/40 via-white to-amber-50/20 p-4 shadow-xs hover:border-amber-400 transition-all"
+            className="rounded-xl border border-amber-200/80 bg-linear-to-br from-amber-50/40 via-white to-amber-50/20 p-4 shadow-xs hover:border-amber-400 transition-all"
           >
             <div className="flex items-center justify-between mb-2">
               <span className="flex items-center gap-1 text-[11px] font-bold text-slate-500">

@@ -142,7 +142,7 @@ export const StreakPuzzle: React.FC<StreakPuzzleProps> = ({
             >
               <span className="text-[10px] opacity-75">{dayNum}</span>
               {isDone ? (
-                <Check className="h-3 w-3 text-amber-600 stroke-[3]" />
+                <Check className="h-3 w-3 text-amber-600 stroke-3" />
               ) : isCurrentTarget ? (
                 <span className="text-[9px] text-amber-700">اليوم</span>
               ) : null}

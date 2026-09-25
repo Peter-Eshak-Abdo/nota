@@ -137,7 +137,7 @@ export const AdminDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Light Top Banner */}
-      <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-amber-50/50 p-6 shadow-sm">
+      <div className="rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 via-white to-amber-50/50 p-6 shadow-sm">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -950,7 +950,7 @@ export const AdminDashboard: React.FC = () => {
               تأكيد تصفير البيانات والبدء كنسخة إنتاج نظيفة؟
             </h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-5">
-              سيتم مسح أي بيانات تجريبية سابقة فوراً وضبط النظام على حساب <strong>أ. بيتر إسحاق (Admin)</strong> فقط بكود دخوله (99018421736510). يمكنك بعد ذلك استيراد بيانات الخدام والمخدومين الحقيقيين عبر شيت Excel.
+              سيتم مسح أي بيانات تجريبية سابقة فوراً وضبط النظام على حساب <strong>أ. بيتر إسحاق (Admin)</strong> فقط بكود الأدمن السري المحفوظ بأمان في الخادم (Backend Secrets). يمكنك بعد ذلك استيراد بيانات الخدام والمخدومين الحقيقيين عبر شيت Excel.
             </p>
 
             <div className="flex gap-2">

@@ -152,7 +152,7 @@ export const AntiCheatModal: React.FC<AntiCheatModalProps> = ({
           <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
             <div
               className={`h-full transition-all duration-1000 ${
-                isUrgent ? 'bg-rose-500' : 'bg-gradient-to-r from-amber-500 to-amber-400'
+                isUrgent ? 'bg-rose-500' : 'bg-linear-to-r from-amber-500 to-amber-400'
               }`}
               style={{ width: `${timerPercentage}%` }}
             />

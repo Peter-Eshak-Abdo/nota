@@ -12,14 +12,10 @@ import {
   MonthlyConfessionRecord,
 } from '@/types';
 
-/**
- * Clean Production Seed: Only Main Admin (أ. بيتر إسحاق)
- * All other youths and servants are dynamically imported via Excel or self-registered.
- */
 export const SEED_PROFILES: UserProfile[] = [
   {
     uid: 'admin-1',
-    accessCode: '99018421736510',
+    accessCode: '', // Managed securely via Backend Environment Variables (ADMIN_ACCESS_CODE)
     email: 'admin@nota.church',
     displayName: 'أ. بيتر إسحاق',
     role: 'admin',
@@ -27,7 +23,7 @@ export const SEED_PROFILES: UserProfile[] = [
     currentStreak: 0,
     totalTasksCompleted: 0,
     churchGroup: 'أمانة الخدمة - كنيسة السيدة العذراء مريم بالإسماعيلية',
-    createdAt: '2026-01-01',
+    createdAt: '2026-09-25',
   },
 ];
 

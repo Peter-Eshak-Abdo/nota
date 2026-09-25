@@ -57,7 +57,7 @@ interface AppContextType {
   isOnline: boolean;
   syncStatus: 'synced' | 'pending_sync' | 'offline';
   isMounted: boolean;
-  loginWithCode: (code: string) => { success: boolean; message?: string };
+  loginWithCode: (code: string) => Promise<{ success: boolean; message?: string }>;
   loginWithBiometrics: () => Promise<{ success: boolean; message?: string }>;
   toggleBiometrics: (enabled: boolean) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
@@ -382,8 +382,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // 14-Digit Code Login
-  const loginWithCode = (rawInputCode: string): { success: boolean; message?: string } => {
+  // 14-Digit Code Login with Server-Side Verification for Admin & Sensitive Secrets
+  const loginWithCode = async (rawInputCode: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const rateLimit = checkRateLimit('login_attempts', 6, 60 * 1000);
       if (!rateLimit.allowed) {
@@ -398,8 +398,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'الكود يجب أن يتكون من ١٤ رقماً.' };
       }
 
+      // 1. Check Server-Side Backend Authentication (Keeps Admin Code completely off GitHub and out of Client JS)
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: cleanInput }),
+        });
+
+        if (response.ok) {
+          const authData = await response.json();
+          if (authData.success && authData.isAdmin && authData.user) {
+            const adminUser: UserProfile = authData.user;
+            setAllUsers((prev) => {
+              const remaining = prev.filter((u) => u.uid !== adminUser.uid);
+              const updated = [adminUser, ...remaining];
+              if (typeof window !== 'undefined') {
+                localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updated));
+              }
+              return updated;
+            });
+            setCurrentUserId(adminUser.uid);
+            recordSecurityAudit('admin_login_success', adminUser.uid, { origin: 'server_auth' });
+            return { success: true };
+          }
+        }
+      } catch (networkError) {
+        console.warn('Backend login endpoint unavailable, proceeding with local credentials check:', networkError);
+      }
+
+      // 2. Check Database / Local Registered Users (Servants and Youth)
       const user = allUsers.find(
-        (u) => clean14DigitCode(u.accessCode) === cleanInput
+        (u) => u.accessCode && clean14DigitCode(u.accessCode) === cleanInput
       );
 
       if (!user) {
@@ -419,6 +449,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       setCurrentUserId(user.uid);
+      recordSecurityAudit('user_login_success', user.uid, { role: user.role });
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

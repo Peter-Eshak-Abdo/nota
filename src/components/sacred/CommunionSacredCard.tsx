@@ -88,7 +88,7 @@ export const CommunionSacredCard: React.FC<CommunionSacredCardProps> = ({
                     : 'bg-white text-slate-400 border border-slate-200'
                 }`}
               >
-                {isDone ? <Check className="h-5 w-5 stroke-[3]" /> : <Church className="h-5 w-5" />}
+                {isDone ? <Check className="h-5 w-5 stroke-3" /> : <Church className="h-5 w-5" />}
               </div>
 
               <span className="font-bold text-xs text-slate-900 block">
