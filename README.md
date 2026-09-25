@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ✝️ تطبيق Nota - النوتة الروحية وبناء العادات لشباب الكنيسة
 
-## Getting Started
+تطبيق ويب تقدمي متكامل (**Full-Stack PWA**) مبني باستخدام **Next.js 16**, **Tailwind CSS**, و **Firebase**، مصمم خصيصاً لخدمة شباب مرحلة ثانوي بالكنيسة القبطية الأرثوذكسية، لتتبع "القانون الروحي" وبناء عادات روحية مقدسة لا تنكسر وفق منهجية **Atomic Habits** (العادات الذرية) مع نظام تفاعلي متقدم مضاد للغش والذكاء الاصطناعي (**Anti-Search & Anti-AI**).
 
-First, run the development server:
+---
 
+## 🌟 أبرز المميزات والخصائص
+
+### 1. 🛡️ القانون الروحي والتحقق اللحظي الذكي (Anti-Cheat Mechanism)
+* **المحاور الأربعة:** قراءة الكتاب المقدس، صلاة الأجبية والخلوة، التناول من الأسرار المقدسة، وجلسة الاعتراف.
+* **التحقق الظرفي اللحظي:** عند تسجيل أي بند يظهر للمخدوم سؤال تأملي ظرفي غير تقليدي (Situational Question) مستوحى من الإصحاح، قراءات القداس، أو السنكسار.
+* **مؤقت تنازلي ذكي محسوب برمجياً:** يتم احتساب وقت الإجابة بدقة (مثلاً من 20 إلى 35 ثانية) وفقاً لعدد كلمات السؤال وعمقه لمنع المخدوم من البحث في جوجل أو سؤال أدوات الذكاء الاصطناعي، مع تعطيل اللصق المباشر (Paste Prevention) لتشجيع الصدق والتأمل الشخصي.
+
+### 2. 🎨 الأشكال الغامضة والتحفيز (Gamification & Mystery Shapes)
+* **لوحة الأشكال الروحية الغامضة (Mystery Shape Canvas):** لوحة تفاعلية مرسومة بـ HTML5 Canvas؛ كل بند روحي ينجزه المخدوم يضيف نقاطاً وخطوطاً كونية مضيئة. عند إنجاز جميع بنود اليوم الأربعة، ينكشف الشكل الروحي المقدس (صليب قبطي منير بأشعة ذهبية وتأثيرات بصرية حية).
+* **سلسلة الـ ٣٠ يوماً (30-Day Streak Puzzle):** مصفوفة بازل من 30 قطعة؛ كل يوم التزام يلون قطعة منها. عند إتمام الـ 30 يوماً، ينطلق احتفال تفاعلي ضخم بمؤثرات صوتية، ألعاب نارية (Confetti)، وإمكانية مشاركة وسام الإنجاز (Shareable Achievement).
+
+### 3. 👥 نظام الصلاحيات والأدوار (Strict RBAC)
+1. **أمين الخدمة (Admin):**
+   * تحكم وإشراف كامل في النظام وإحصائيات الالتزام.
+   * إدارة توزيع الخدام على المخدومين مع خاصية **التدوير الشهري التلقائي (Monthly Rotation)**.
+   * صندوق مراجعة واعتماد طلبات الخدام (Approve / Reject).
+   * نشر العظات العامة والموجهة.
+   * الاطلاع الرقابي على الملاحظات السرية للخدام.
+2. **الخادم (Servant / Khadem):**
+   * متابعة المخدومين المسندين إليه فقط.
+   * لا يمكنه تعديل بيانات المخدوم مباشرة؛ يرفع طلب تعديل/استعادة سلسلة لأمين الخدمة للاعتماد.
+   * قسم **الملاحظات السرية (Private Notes)** المخصصة لكل مخدوم (مرئية للخادم وأمين الخدمة فقط ولا يراها المخدوم).
+   * إضافة عظات ومقاطع روحية موجهة لشبابه.
+3. **المخدوم (Youth / Makhdoom):**
+   * واجهة مستخدم بيانية جذابة سهلة الاستخدام ومحسنة كـ PWA على هواتف iPhone والأندرويد.
+   * تسجيل البنود وتأكيد التأملات.
+   * قائمة تشغيل العظات الروحية الخاصة به.
+
+### 4. 📶 العمل دون اتصال بالكامل (Offline-First Architecture)
+* يدعم حفظ كافة الإجراءات والمهام محلياً في حال انقطاع الإنترنت، مع ظهور شريط إشعار:  
+  *«تم حفظ التعديلات محلياً على جهازك وستتم المزامنة تلقائياً فور عودة الاتصال بالإنترنت»*.
+* معالجة طابور العمليات (Sync Queue) فور استعادة الاتصال.
+
+---
+
+## 🏗️ البنية البرمجية والتقنيات (Tech Stack)
+
+* **Framework:** [Next.js 16 (App Router)](https://nextjs.org/)
+* **Language:** TypeScript 5
+* **Styling:** Tailwind CSS 4 (لوحة ألوان روحية ذهبية وكحلية Coptic Gold & Imperial Navy)
+* **Icons:** Lucide React
+* **Visual Effects:** Canvas Confetti & HTML5 Canvas Engine
+* **Database & Auth:** Firebase Firestore & Firebase Auth
+* **Security:** Firebase Security Rules (`firestore.rules`)
+
+---
+
+## 🚀 طريقة التشغيل محلياً (Quick Start)
+
+### 1. تثبيت الاعتماديات:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. إعداد مفاتيح Firebase:
+قم بإنشاء ملف `.env.local` مسترشداً بملف `.env.example`:
+```env
+NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-app.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:...
+```
+> **ملاحظة:** يعمل التطبيق افتراضياً بنمط المحاكاة المحلي (Mock & Seed Data) بكفاءة 100% حتى قبل وضع مفاتيح Firebase لتسهيل المعاينة والاختبار الفوري لجميع الصلاحيات.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. تشغيل خادم التطوير:
+```bash
+npm run dev
+```
+افتح المتصفح على: `http://localhost:3000`
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## 🔒 قواعد حماية فايربيس (Firestore Security Rules)
+تم تضمين القواعد الأمنية بالكامل في ملف `firestore.rules`. لنشرها على مشروع Firebase الخاص بك:
+```bash
+firebase deploy --only firestore:rules
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📱 التثبيت كـ تطبيق PWA على الهواتف
+* يدعم التطبيق التثبيت كـ Web App مستقل (Standalone).
+* على **iPhone (Safari)**: اضغط على زر المشاركة ثم اختر **"إضافة إلى الشاشة الرئيسية" (Add to Home Screen)**.
+* على **Android (Chrome)**: اضغط على القائمة ثم اختر **"تثبيت التطبيق" (Install App)**.

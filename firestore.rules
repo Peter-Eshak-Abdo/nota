@@ -1,0 +1,77 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for RBAC
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'admin');
+    }
+
+    function isServant() {
+      return isAuthenticated() && (getUserData().role == 'servant');
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // Any authenticated user can read basic user profiles in their church
+      allow read: if isAuthenticated();
+      // Only Admin can create/update roles and assignments directly
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedServantId', 'assignedYouthIds']));
+    }
+
+    // 2. Habits & Daily Logs (The Spiritual Law)
+    match /daily_logs/{logId} {
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isServant() || 
+        isAdmin()
+      );
+      // Youth can log their own tasks; cannot overwrite other users' logs
+      allow create, update: if isAuthenticated() && (
+        request.resource.data.userId == request.auth.uid || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // 3. Sermons Collection
+    match /sermons/{sermonId} {
+      // All authenticated users can view sermons
+      allow read: if isAuthenticated();
+      // Admin and Servants can create sermons
+      allow create: if isAdmin() || isServant();
+      // Admin can update/delete any sermon; Servant can edit/delete sermons they added
+      allow update, delete: if isAdmin() || (isServant() && resource.data.addedBy == request.auth.uid);
+    }
+
+    // 4. Servant Private Notes (Confidential between Servant and Admin)
+    match /servant_notes/{noteId} {
+      // Strictly visible ONLY to Admins and the author Servant (Youth CANNOT read)
+      allow read: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
+      allow create: if isServant() || isAdmin();
+      allow update, delete: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
+    }
+
+    // 5. Approval Requests
+    match /approval_requests/{requestId} {
+      // Servants can view requests they created; Admin can view all
+      allow read: if isAdmin() || (isServant() && resource.data.servantId == request.auth.uid);
+      // Servants can create requests
+      allow create: if isServant();
+      // Only Admin can approve/reject/modify requests
+      allow update, delete: if isAdmin();
+    }
+  }
+}
