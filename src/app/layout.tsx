@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Cairo, Inter } from 'next/font/google';
 import './globals.css';
 import { AppProvider } from '@/context/AppContext';
-import { Navbar } from '@/components/layout/Navbar';
 
 const cairo = Cairo({
   subsets: ['arabic', 'latin'],
@@ -45,7 +44,6 @@ export default function RootLayout({
     <html lang="ar" dir="rtl" className={`${cairo.variable} ${inter.variable}`}>
       <body className="min-h-screen bg-[#FDFBF7] text-slate-800 font-sans antialiased selection:bg-amber-500 selection:text-white">
         <AppProvider>
-          <Navbar />
           {children}
         </AppProvider>
       </body>

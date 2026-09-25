@@ -2,26 +2,24 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { UserRole } from '@/types';
+import { format14DigitCode, clean14DigitCode } from '@/lib/biometrics';
 import {
-  ShieldCheck,
-  User,
-  Users,
   KeyRound,
-  CheckCircle2,
+  Fingerprint,
   AlertCircle,
-  Church,
+  Copy,
+  Check,
   ArrowLeft,
-  Sparkles,
 } from 'lucide-react';
 
 export const AuthScreen: React.FC = () => {
-  const { allUsers, login, quickDemoLogin, registerUser } = useApp();
+  const { allUsers, loginWithCode, loginWithBiometrics, registerUser } = useApp();
   const [mode, setMode] = useState<'login' | 'register'>('login');
 
   // Login form state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [rawCode, setRawCode] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isBiometricLoading, setIsBiometricLoading] = useState(false);
 
   // Register form state
   const [regName, setRegName] = useState('');
@@ -29,23 +27,43 @@ export const AuthScreen: React.FC = () => {
   const [regPhone, setRegPhone] = useState('');
   const [regRole, setRegRole] = useState<'youth' | 'servant'>('youth');
   const [regServantId, setRegServantId] = useState('');
+  const [regSuccessCode, setRegSuccessCode] = useState<string | null>(null);
   const [regSuccessMessage, setRegSuccessMessage] = useState('');
   const [regErrorMessage, setRegErrorMessage] = useState('');
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const activeServants = allUsers.filter(
     (u) => u.role === 'servant' && u.status === 'active'
   );
 
+  const handleCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = format14DigitCode(e.target.value);
+    setRawCode(formatted);
+    setLoginError('');
+  };
+
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
-    if (!loginEmail.trim()) {
-      setLoginError('يرجى إدخال البريد الإلكتروني');
+    const clean = clean14DigitCode(rawCode);
+    if (clean.length < 14) {
+      setLoginError('يرجى إدخال كود الدخول كاملاً (١٤ رقماً)');
       return;
     }
-    const result = login(loginEmail);
-    if (!result.success) {
-      setLoginError(result.message || 'فشل تسجيل الدخول.');
+
+    const res = loginWithCode(clean);
+    if (!res.success) {
+      setLoginError(res.message || 'كود الدخول غير صحيح.');
+    }
+  };
+
+  const handleBiometricClick = async () => {
+    setIsBiometricLoading(true);
+    setLoginError('');
+    const res = await loginWithBiometrics();
+    setIsBiometricLoading(false);
+    if (!res.success) {
+      setLoginError(res.message || 'تعذر تسجيل الدخول بالبصمة.');
     }
   };
 
@@ -53,6 +71,7 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setRegErrorMessage('');
     setRegSuccessMessage('');
+    setRegSuccessCode(null);
 
     if (!regName.trim() || !regEmail.trim()) {
       setRegErrorMessage('يرجى ملء جميع الحقول المطلوبة');
@@ -72,7 +91,8 @@ export const AuthScreen: React.FC = () => {
       assignedServantId: regRole === 'youth' ? regServantId : undefined,
     });
 
-    if (result.success) {
+    if (result.success && result.accessCode) {
+      setRegSuccessCode(result.accessCode);
       setRegSuccessMessage(result.message);
       setRegName('');
       setRegEmail('');
@@ -80,6 +100,13 @@ export const AuthScreen: React.FC = () => {
     } else {
       setRegErrorMessage(result.message);
     }
+  };
+
+  const handleCopyCode = () => {
+    if (!regSuccessCode) return;
+    navigator.clipboard.writeText(regSuccessCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 3000);
   };
 
   return (
@@ -97,7 +124,7 @@ export const AuthScreen: React.FC = () => {
         </p>
       </div>
 
-      {/* Main Card */}
+      {/* Main Container Card */}
       <div className="w-full max-w-md rounded-2xl border border-amber-200/80 bg-white p-6 sm:p-8 shadow-xl shadow-amber-100/50">
         {/* Toggle Login / Register */}
         <div className="flex rounded-xl bg-slate-100 p-1 mb-6">
@@ -106,7 +133,7 @@ export const AuthScreen: React.FC = () => {
             onClick={() => {
               setMode('login');
               setLoginError('');
-              setRegSuccessMessage('');
+              setRegSuccessCode(null);
             }}
             className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
               mode === 'login'
@@ -114,14 +141,14 @@ export const AuthScreen: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            تسجيل الدخول
+            تسجيل الدخول بالكود
           </button>
           <button
             type="button"
             onClick={() => {
               setMode('register');
               setLoginError('');
-              setRegSuccessMessage('');
+              setRegSuccessCode(null);
             }}
             className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
               mode === 'register'
@@ -129,26 +156,36 @@ export const AuthScreen: React.FC = () => {
                 : 'text-slate-500 hover:text-slate-900'
             }`}
           >
-            حساب جديد (مخدوم / خادم)
+            طلب حساب جديد
           </button>
         </div>
 
-        {/* Mode 1: Login */}
+        {/* Mode 1: Code & Biometric Login */}
         {mode === 'login' && (
-          <div>
+          <div className="space-y-4">
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  البريد الإلكتروني:
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  كود الدخول المكون من ١٤ رقماً:
                 </label>
-                <input
-                  type="email"
-                  required
-                  value={loginEmail}
-                  onChange={(e) => setLoginEmail(e.target.value)}
-                  placeholder="مثال: fady.youth@nota.church"
-                  className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 transition-all"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    required
+                    value={rawCode}
+                    onChange={handleCodeChange}
+                    placeholder="xxxx xxxx xxxx xx"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-4 py-3 text-base sm:text-lg font-mono font-bold tracking-wider text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 transition-all text-center"
+                    maxLength={17}
+                  />
+                  <KeyRound className="h-5 w-5 text-slate-400 absolute left-3 top-3.5 pointer-events-none" />
+                </div>
+                <div className="flex justify-between items-center mt-1.5 text-[10px] text-slate-500">
+                  <span>تم إدخال {clean14DigitCode(rawCode).length} من ١٤ رقماً</span>
+                  <span>الكود فريد وخاص بك</span>
+                </div>
               </div>
 
               {loginError && (
@@ -166,71 +203,86 @@ export const AuthScreen: React.FC = () => {
               </button>
             </form>
 
-            {/* Quick Demo Access Bar */}
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block text-center mb-3">
-                الدخول السريع الفوري للمعاينة والتجربة:
-              </span>
-              <div className="grid grid-cols-3 gap-2">
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin('youth')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/70 text-amber-900 transition-colors"
-                >
-                  <User className="h-4 w-4 text-amber-600 mb-1" />
-                  <span className="text-xs font-bold">المخدوم</span>
-                  <span className="text-[10px] text-amber-700">فادي جورج</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin('servant')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-sky-200 bg-sky-50/50 hover:bg-sky-100/70 text-sky-900 transition-colors"
-                >
-                  <Users className="h-4 w-4 text-sky-600 mb-1" />
-                  <span className="text-xs font-bold">الخادم</span>
-                  <span className="text-[10px] text-sky-700">مينا أشرف</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => quickDemoLogin('admin')}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/70 text-emerald-900 transition-colors"
-                >
-                  <ShieldCheck className="h-4 w-4 text-emerald-600 mb-1" />
-                  <span className="text-xs font-bold">أمين الخدمة</span>
-                  <span className="text-[10px] text-emerald-700">أ. بيتر</span>
-                </button>
+            {/* Quick Biometrics Authentication Button */}
+            <div className="pt-2">
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-slate-200"></div>
+                <span className="flex-shrink mx-3 text-[11px] font-bold text-slate-400">أو</span>
+                <div className="flex-grow border-t border-slate-200"></div>
               </div>
+
+              <button
+                type="button"
+                onClick={handleBiometricClick}
+                disabled={isBiometricLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.99] transition-all shadow-xs"
+              >
+                <Fingerprint className="h-5 w-5 text-amber-600" />
+                <span>
+                  {isBiometricLoading ? 'جاري التحقق...' : 'تسجيل الدخول ببصمة الهاتف أو Face ID'}
+                </span>
+              </button>
             </div>
+
+            <p className="text-center text-[11px] text-slate-400 pt-2">
+              * في حال فقدان كودك، يرجى مراجعة خادم فصلك أو أمين الخدمة للاطلاع على كودك المسجل.
+            </p>
           </div>
         )}
 
         {/* Mode 2: Register */}
         {mode === 'register' && (
           <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
-            {regSuccessMessage ? (
-              <div className="rounded-xl border border-emerald-300 bg-emerald-50 p-5 text-center space-y-3">
-                <CheckCircle2 className="h-10 w-10 text-emerald-600 mx-auto" />
-                <h3 className="font-bold text-sm text-emerald-900">
-                  تم استلام طلب التسجيل بنجاح!
-                </h3>
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  {regSuccessMessage}
-                </p>
+            {regSuccessCode ? (
+              <div className="rounded-xl border border-emerald-300 bg-emerald-50/70 p-5 text-center space-y-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-600 text-white mx-auto shadow-md">
+                  <KeyRound className="h-6 w-6" />
+                </div>
+
+                <div>
+                  <h3 className="font-extrabold text-base text-emerald-950">
+                    تم إنشاء طلبك وتوليد كودك بنجاح!
+                  </h3>
+                  <p className="text-xs text-emerald-800 mt-1 leading-relaxed">
+                    {regSuccessMessage}
+                  </p>
+                </div>
+
+                {/* 14-Digit Access Code Box */}
+                <div className="rounded-xl border border-emerald-400 bg-white p-3.5 text-center shadow-xs">
+                  <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                    كود الدخول المكون من ١٤ رقماً (احفظه جيداً):
+                  </span>
+                  <div className="font-mono text-xl sm:text-2xl font-black text-amber-700 tracking-widest my-1 select-all">
+                    {format14DigitCode(regSuccessCode)}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 px-3 py-1 text-xs font-bold text-emerald-900 transition-colors mt-1"
+                  >
+                    {copiedCode ? <Check className="h-3.5 w-3.5 text-emerald-700" /> : <Copy className="h-3.5 w-3.5" />}
+                    <span>{copiedCode ? 'تم نسخ الكود!' : 'نسخ الكود'}</span>
+                  </button>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => setMode('login')}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+                  onClick={() => {
+                    setRawCode(format14DigitCode(regSuccessCode));
+                    setMode('login');
+                    setRegSuccessCode(null);
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 shadow-sm"
                 >
-                  <span>العودة لصفحة الدخول</span>
+                  <span>الانتقال لصفحة تسجيل الدخول</span>
                   <ArrowLeft className="h-3.5 w-3.5" />
                 </button>
               </div>
             ) : (
               <>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     الاسم ثلاثي:
                   </label>
                   <input
@@ -239,12 +291,12 @@ export const AuthScreen: React.FC = () => {
                     value={regName}
                     onChange={(e) => setRegName(e.target.value)}
                     placeholder="مثال: يوحنا مجدي كمال"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-xs text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     البريد الإلكتروني:
                   </label>
                   <input
@@ -253,12 +305,12 @@ export const AuthScreen: React.FC = () => {
                     value={regEmail}
                     onChange={(e) => setRegEmail(e.target.value)}
                     placeholder="yohanna@gmail.com"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-xs text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     رقم الهاتف / واتساب:
                   </label>
                   <input
@@ -266,12 +318,12 @@ export const AuthScreen: React.FC = () => {
                     value={regPhone}
                     onChange={(e) => setRegPhone(e.target.value)}
                     placeholder="012xxxxxxxx"
-                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-sm text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                    className="w-full rounded-xl border border-slate-300 bg-slate-50/50 px-3.5 py-2 text-xs text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     الصفة في الخدمة:
                   </label>
                   <div className="grid grid-cols-2 gap-2">
@@ -302,7 +354,7 @@ export const AuthScreen: React.FC = () => {
 
                 {regRole === 'youth' ? (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       الخادم المسؤول عنك:
                     </label>
                     <select
@@ -319,12 +371,12 @@ export const AuthScreen: React.FC = () => {
                       ))}
                     </select>
                     <p className="mt-1 text-[10px] text-amber-800 bg-amber-50 p-2 rounded-lg border border-amber-200">
-                      * ستصل رسالة للخادم بالموافقة والاعتماد قبل تفعيل حسابك مباشرة.
+                      * سيتم توليد كود دخول ١٤ رقماً لك وستصل رسالة لخادمك بالموافقة على تفعيل حسابك.
                     </p>
                   </div>
                 ) : (
                   <p className="text-[11px] text-sky-800 bg-sky-50 p-2.5 rounded-lg border border-sky-200 leading-relaxed">
-                    * كخادم جديد، ستصل رسالة لأمين الخدمة (Admin) للموافقة على إضافتك لفريق الخدام وتوزيع المخدومين.
+                    * كخادم جديد، سيتم توليد كود ١٤ رقماً لك وستصل رسالة لأمين الخدمة (Admin) للموافقة.
                   </p>
                 )}
 
@@ -339,7 +391,7 @@ export const AuthScreen: React.FC = () => {
                   type="submit"
                   className="w-full rounded-xl bg-amber-500 py-3 text-sm font-bold text-white shadow-md shadow-amber-200 hover:bg-amber-600 active:scale-[0.99] transition-all"
                 >
-                  إرسال طلب التسجيل للاعتماد
+                  إنشاء الكود وإرسال طلب التسجيل
                 </button>
               </>
             )}

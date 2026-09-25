@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { HabitType, AntiCheatQuestion } from '@/types';
 import { getQuestionForHabit, validateReflectionAnswer } from '@/lib/antiCheatEngine';
 import { Timer, AlertTriangle, ShieldCheck, RefreshCw, X, BookOpen } from 'lucide-react';
@@ -37,7 +37,7 @@ export const AntiCheatModal: React.FC<AntiCheatModalProps> = ({
   const [pasteBlockedWarning, setPasteBlockedWarning] = useState<boolean>(false);
   const [isTimedOut, setIsTimedOut] = useState<boolean>(false);
 
-  const loadQuestion = () => {
+  const resetQuestion = useCallback(() => {
     const q = getQuestionForHabit(taskType, assignedBookName, currentChapter);
     setQuestion(q);
     setTimeLeft(q.timeLimitSeconds);
@@ -46,20 +46,20 @@ export const AntiCheatModal: React.FC<AntiCheatModalProps> = ({
     setErrorMessage('');
     setIsTimedOut(false);
     setPasteBlockedWarning(false);
-  };
+  }, [taskType, assignedBookName, currentChapter]);
 
   useEffect(() => {
     if (isOpen) {
-      loadQuestion();
+      const timer = setTimeout(() => {
+        resetQuestion();
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, taskType, assignedBookName, currentChapter]);
+  }, [isOpen, resetQuestion]);
 
   // Countdown timer with generous interval
   useEffect(() => {
     if (!isOpen || isTimedOut || timeLeft <= 0) {
-      if (timeLeft <= 0 && !isTimedOut) {
-        setIsTimedOut(true);
-      }
       return;
     }
 
@@ -220,7 +220,7 @@ export const AntiCheatModal: React.FC<AntiCheatModalProps> = ({
           <div className="flex items-center justify-between gap-3 pt-2">
             <button
               type="button"
-              onClick={loadQuestion}
+              onClick={resetQuestion}
               className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
             >
               <RefreshCw className="h-3.5 w-3.5" />

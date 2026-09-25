@@ -15,11 +15,12 @@ export async function GET(request: NextRequest) {
       success: true,
       data: question,
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to generate situational question';
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to generate situational question',
+        error: message,
       },
       { status: 500 }
     );

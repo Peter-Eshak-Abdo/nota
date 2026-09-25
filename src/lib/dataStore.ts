@@ -5,11 +5,17 @@ import {
   ServantPrivateNote,
   ApprovalRequest,
   RegistrationRequest,
+  ServantMessage,
+  SystemErrorLog,
+  MonthlySacredIconArchive,
+  WeeklyCommunionRecord,
+  MonthlyConfessionRecord,
 } from '@/types';
 
 export const SEED_PROFILES: UserProfile[] = [
   {
     uid: 'admin-1',
+    accessCode: '99018421736510',
     email: 'admin@nota.church',
     displayName: 'أ. بيتر إسحق',
     role: 'admin',
@@ -21,6 +27,7 @@ export const SEED_PROFILES: UserProfile[] = [
   },
   {
     uid: 'servant-1',
+    accessCode: '77235190448231',
     email: 'mina.servant@nota.church',
     displayName: 'الخادم مينا أشرف',
     role: 'servant',
@@ -33,6 +40,7 @@ export const SEED_PROFILES: UserProfile[] = [
   },
   {
     uid: 'servant-2',
+    accessCode: '88346201559342',
     email: 'david.servant@nota.church',
     displayName: 'الخادم ديفيد يوسف',
     role: 'servant',
@@ -45,21 +53,23 @@ export const SEED_PROFILES: UserProfile[] = [
   },
   {
     uid: 'youth-1',
+    accessCode: '10482951830492',
     email: 'fady.youth@nota.church',
     displayName: 'فادي جورج',
     role: 'youth',
     status: 'active',
     assignedServantId: 'servant-1',
     assignedServantName: 'الخادم مينا أشرف',
-    currentStreak: 24, // 24 days streak
+    currentStreak: 24,
     totalTasksCompleted: 87,
     churchGroup: 'أولى ثانوي ب',
+    assignedAgpeyaHours: ['baker', 'sunset', 'sleep'],
     assignedReading: {
       bookId: 'malachi',
       bookName: 'سفر ملاخي',
       testament: 'old',
       totalChapters: 4,
-      currentChapter: 1, // Currently on chapter 1
+      currentChapter: 1,
       isCompleted: false,
       assignedBy: 'servant-1',
       assignedByName: 'الخادم مينا أشرف',
@@ -69,6 +79,7 @@ export const SEED_PROFILES: UserProfile[] = [
   },
   {
     uid: 'youth-2',
+    accessCode: '20394810572988',
     email: 'kirollos.youth@nota.church',
     displayName: 'كيرلس عادل',
     role: 'youth',
@@ -78,13 +89,14 @@ export const SEED_PROFILES: UserProfile[] = [
     currentStreak: 12,
     totalTasksCompleted: 48,
     churchGroup: 'أولى ثانوي ب',
+    assignedAgpeyaHours: ['baker', 'sleep'],
     assignedReading: {
       bookId: 'jonah',
       bookName: 'سفر يونان',
       testament: 'old',
       totalChapters: 4,
       currentChapter: 4,
-      isCompleted: true, // Completed! Needs a new book assignment!
+      isCompleted: true,
       assignedBy: 'servant-1',
       assignedByName: 'الخادم مينا أشرف',
       assignedAt: '2026-09-15',
@@ -93,6 +105,7 @@ export const SEED_PROFILES: UserProfile[] = [
   },
   {
     uid: 'youth-3',
+    accessCode: '30495821683077',
     email: 'mariam.youth@nota.church',
     displayName: 'مريم سامح',
     role: 'youth',
@@ -102,6 +115,7 @@ export const SEED_PROFILES: UserProfile[] = [
     currentStreak: 21,
     totalTasksCompleted: 65,
     churchGroup: 'ثانية ثانوي بنات',
+    assignedAgpeyaHours: ['baker', 'sunset'],
     assignedReading: {
       bookId: 'ephesians',
       bookName: 'رسالة أفسس',
@@ -117,10 +131,112 @@ export const SEED_PROFILES: UserProfile[] = [
   },
 ];
 
+export const SEED_MESSAGES: ServantMessage[] = [
+  {
+    id: 'msg-1',
+    servantId: 'servant-1',
+    servantName: 'الخادم مينا أشرف',
+    youthId: 'youth-1',
+    youthName: 'فادي جورج',
+    messageType: 'reminder_bible',
+    title: 'تذكير بقراءة سفر ملاخي 📖',
+    content: 'سلام يا فادي، إصحاح اليوم من سفر ملاخي مليان رسائل عتاب محبة من ربنا، مستني أشوف تأملك في النوتة!',
+    sentAt: '2026-09-25T11:00:00Z',
+    read: false,
+  },
+  {
+    id: 'msg-2',
+    servantId: 'servant-1',
+    servantName: 'الخادم مينا أشرف',
+    youthId: 'youth-1',
+    youthName: 'فادي جورج',
+    messageType: 'encouragement',
+    title: 'عاش يا بطل! سلسلة ٢٤ يوماً 🌟',
+    content: 'فرحان بالتزامك جداً، متبقي ٦ أيام وتكتمل أيقونة الشهر الأرثوذكسية وسلسلة الـ ٣٠ يوماً بالكامل.',
+    sentAt: '2026-09-24T18:00:00Z',
+    read: true,
+  },
+];
+
+export const SEED_ERRORS: SystemErrorLog[] = [];
+
+export const SEED_MONTHLY_ARCHIVES: MonthlySacredIconArchive[] = [
+  {
+    id: 'arch-2026-08',
+    userId: 'youth-1',
+    monthKey: '2026-08',
+    monthNameArabic: 'أغسطس ٢٠٢٦ (صوم العذراء مريم)',
+    iconTitle: 'أيقونة والدة الإله القديسة مريم العذراء',
+    iconType: 'pantocrator',
+    completedDays: 30,
+    totalDays: 30,
+    isFullyRevealed: true,
+    archivedAt: '2026-08-31T23:59:59Z',
+  },
+  {
+    id: 'arch-2026-07',
+    userId: 'youth-1',
+    monthKey: '2026-07',
+    monthNameArabic: 'يوليو ٢٠٢٦ (عيد الرسل الأطهار)',
+    iconTitle: 'أيقونة صليب النور والرسل القديسين',
+    iconType: 'coptic_cross',
+    completedDays: 28,
+    totalDays: 30,
+    isFullyRevealed: true,
+    archivedAt: '2026-07-31T23:59:59Z',
+  },
+];
+
+export const SEED_COMMUNIONS: WeeklyCommunionRecord[] = [
+  {
+    id: 'comm-w1',
+    userId: 'youth-1',
+    monthKey: '2026-09',
+    weekNumber: 1,
+    completed: true,
+    completedAt: '2026-09-06T10:30:00Z',
+    churchName: 'كنيسة السيدة العذراء بالإسماعيلية',
+    reflection: 'شعرت بسلام فائق وحضور إلهي عظيم أمام المذبح.',
+  },
+  {
+    id: 'comm-w2',
+    userId: 'youth-1',
+    monthKey: '2026-09',
+    weekNumber: 2,
+    completed: true,
+    completedAt: '2026-09-13T10:15:00Z',
+    churchName: 'كنيسة السيدة العذراء بالإسماعيلية',
+    reflection: 'تأملت في ذبيحة الصليب والمحبة غير المشروطة.',
+  },
+  {
+    id: 'comm-w3',
+    userId: 'youth-1',
+    monthKey: '2026-09',
+    weekNumber: 3,
+    completed: true,
+    completedAt: '2026-09-20T10:45:00Z',
+    churchName: 'كنيسة السيدة العذراء بالإسماعيلية',
+    reflection: 'قراءات القداس عن مثل الزارع لمست قلبي بشدة.',
+  },
+];
+
+export const SEED_CONFESSIONS: MonthlyConfessionRecord[] = [
+  {
+    id: 'conf-2026-08',
+    userId: 'youth-1',
+    monthKey: '2026-08',
+    completed: true,
+    completedAt: '2026-08-22T17:00:00Z',
+    fatherOfConfession: 'أبونا بولس',
+    reflection: 'أخذت تدريب عن حفظ اللسان وضبط استخدام الهاتف.',
+  },
+];
+
 export const SEED_REGISTRATIONS: RegistrationRequest[] = [
   {
     id: 'reg-servant-1',
     userId: 'pending-servant-1',
+    accessCode: '66129841029384',
     userName: 'بيشوي كمال',
     email: 'bishoy.k@gmail.com',
     phone: '01223344556',
@@ -133,6 +249,7 @@ export const SEED_REGISTRATIONS: RegistrationRequest[] = [
   {
     id: 'reg-youth-1',
     userId: 'pending-youth-1',
+    accessCode: '55018730918273',
     userName: 'يوحنا مجدي',
     email: 'yohanna.m@gmail.com',
     phone: '01011223344',
@@ -210,24 +327,16 @@ export const SEED_NOTES: ServantPrivateNote[] = [
   },
 ];
 
-export const SEED_APPROVALS: ApprovalRequest[] = [
-  {
-    id: 'req-1',
-    servantId: 'servant-1',
-    servantName: 'الخادم مينا أشرف',
-    youthId: 'youth-2',
-    youthName: 'كيرلس عادل',
-    type: 'streak_recovery',
-    reason: 'كان مسافراً مع أسرته دون إنترنت ويرغب في استعادة يومين بالسلسلة بعد أداء التدريب التعويضي.',
-    suggestedData: { restoreDays: 2 },
-    status: 'pending',
-    createdAt: '2026-09-24T19:30:00Z',
-  },
-];
+export const SEED_APPROVALS: ApprovalRequest[] = [];
 
 export function getTodayDateString(): string {
   const now = new Date();
   return now.toISOString().split('T')[0];
+}
+
+export function getCurrentMonthKey(): string {
+  const now = new Date();
+  return now.toISOString().slice(0, 7); // YYYY-MM
 }
 
 export function getDefaultDailyLog(userId: string, dateString: string): DailyHabitLog {
@@ -246,13 +355,14 @@ export function getDefaultDailyLog(userId: string, dateString: string): DailyHab
           ? 'في الأصحاح الأول يعاتب الرب شعبه: «إِنْ كُنْتُ أَنَا أَبًا فَأَيْنَ كَرَامَتِي؟» ويذكر تقديم ذبائح معيبة. كيف تقدم اليوم لله في حياتك أفضل ما لديك؟'
           : undefined,
         reflectionAnswer: isFady
-          ? 'أقدم لله أفضل ما عندي بأن أخصص له أول نصف ساعة من يومي بكامل نشاطي قبل فتح مواقع التواصل.'
+          ? 'أقدم لله أفضل ما عندي بأن أخصص له أول نصف ساعة من يومي بكامل نشاطي قبل فتح أي إشعارات.'
           : undefined,
         timeSpentSeconds: isFady ? 42 : undefined,
       },
       prayer: {
         completed: isFady,
         completedAt: isFady ? `${dateString}T08:45:00Z` : undefined,
+        agpeyaHour: 'baker',
         questionText: isFady ? 'في وقفتك أمام الله، ما هي أكثر طلبة في مزمور الساعات التي لمست قلبك؟' : undefined,
         reflectionAnswer: isFady ? 'طلبت من قلبي السلام في الامتحانات وأن يعطيني الرب حكمة في دراستي.' : undefined,
         timeSpentSeconds: isFady ? 35 : undefined,

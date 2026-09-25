@@ -1,30 +1,47 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
+import { format14DigitCode } from '@/lib/biometrics';
 import {
   Wifi,
   WifiOff,
   Flame,
   LogOut,
-  UserCheck,
-  Shield,
-  Sparkles,
-  CloudUpload,
+  Fingerprint,
+  KeyRound,
+  Check,
+  Copy,
 } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { currentUser, allUsers, switchUser, logout, isOnline, syncStatus } = useApp();
+  const { currentUser, logout, toggleBiometrics, isOnline, syncStatus } = useApp();
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showCodeModal, setShowCodeModal] = useState(false);
+  const [biometricNotice, setBiometricNotice] = useState<string | null>(null);
 
   if (!currentUser) return null;
 
   const roleLabels: Record<string, { name: string; color: string }> = {
-    youth: { name: 'مخدوم', color: 'bg-amber-100 text-amber-800' },
-    servant: { name: 'خادم', color: 'bg-sky-100 text-sky-800' },
-    admin: { name: 'أمين الخدمة', color: 'bg-emerald-100 text-emerald-800' },
+    youth: { name: 'مخدوم', color: 'bg-amber-100 text-amber-900 border border-amber-200' },
+    servant: { name: 'خادم', color: 'bg-sky-100 text-sky-900 border border-sky-200' },
+    admin: { name: 'أمين الخدمة', color: 'bg-emerald-100 text-emerald-900 border border-emerald-200' },
   };
 
   const currentRoleInfo = roleLabels[currentUser.role] || roleLabels.youth;
+
+  const handleCopyCode = () => {
+    navigator.clipboard.writeText(currentUser.accessCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
+
+  const handleToggleBiometrics = async () => {
+    const willEnable = !currentUser.biometricEnabled;
+    const res = await toggleBiometrics(willEnable);
+    setBiometricNotice(res.message || null);
+    setTimeout(() => setBiometricNotice(null), 3500);
+  };
 
   return (
     <>
@@ -45,12 +62,12 @@ export const Navbar: React.FC = () => {
                 </span>
               </div>
               <p className="text-[10px] text-slate-500">
-                كنيسة العذراء بالإسماعيلية • بناء العادات لشباب ثانوي
+                كنيسة السيدة العذراء بالإسماعيلية
               </p>
             </div>
           </div>
 
-          {/* Right Controls: Role & User & Logout */}
+          {/* Right Controls */}
           <div className="flex items-center gap-2.5">
             {/* Streak Badge */}
             {currentUser.role === 'youth' && (
@@ -83,51 +100,38 @@ export const Navbar: React.FC = () => {
               )}
             </div>
 
-            {/* Current User & Role Switcher */}
-            <div className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${currentRoleInfo.color}`}>
+            {/* User Info Bar */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-700">
+              <span className={`px-2 py-0.5 rounded text-[10px] font-black ${currentRoleInfo.color}`}>
                 {currentRoleInfo.name}
               </span>
-              <span className="font-bold text-slate-900 hidden sm:inline">
+              <span className="font-extrabold text-slate-900 hidden sm:inline">
                 {currentUser.displayName}
               </span>
-              {/* Demo Switcher */}
-              <select
-                value={currentUser.uid}
-                onChange={(e) => switchUser(e.target.value)}
-                aria-label="التبديل بين الحسابات"
-                className="bg-transparent text-xs font-bold text-amber-700 focus:outline-none cursor-pointer border-r border-slate-200 pr-1.5 mr-1"
-                title="تبديل الحساب للتجربة السريعة"
-              >
-                <optgroup label="المخدومين (Youths)">
-                  {allUsers
-                    .filter((u) => u.role === 'youth' && u.status === 'active')
-                    .map((u) => (
-                      <option key={u.uid} value={u.uid}>
-                        {u.displayName} (مخدوم)
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="الخدام (Servants)">
-                  {allUsers
-                    .filter((u) => u.role === 'servant' && u.status === 'active')
-                    .map((u) => (
-                      <option key={u.uid} value={u.uid}>
-                        {u.displayName} (خادم)
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="أمين الخدمة (Admin)">
-                  {allUsers
-                    .filter((u) => u.role === 'admin' && u.status === 'active')
-                    .map((u) => (
-                      <option key={u.uid} value={u.uid}>
-                        {u.displayName} (أمين الخدمة)
-                      </option>
-                    ))}
-                </optgroup>
-              </select>
             </div>
+
+            {/* My 14-Digit Code Button */}
+            <button
+              onClick={() => setShowCodeModal(true)}
+              title="عرض كود الدخول الخاص بي (١٤ رقماً)"
+              className="flex items-center gap-1 p-2 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100 transition-colors text-xs font-bold"
+            >
+              <KeyRound className="h-4 w-4 text-amber-700" />
+              <span className="hidden md:inline">كودي</span>
+            </button>
+
+            {/* Biometric Toggle Button */}
+            <button
+              onClick={handleToggleBiometrics}
+              title={currentUser.biometricEnabled ? 'إلغاء ربط بصمة الهاتف' : 'تفعيل الدخول ببصمة الهاتف أو Face ID'}
+              className={`p-2 rounded-xl border transition-colors ${
+                currentUser.biometricEnabled
+                  ? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                  : 'border-slate-200 bg-white text-slate-400 hover:text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <Fingerprint className="h-4 w-4" />
+            </button>
 
             {/* Logout Button */}
             <button
@@ -141,13 +145,60 @@ export const Navbar: React.FC = () => {
         </div>
       </header>
 
+      {/* Biometric Notice Banner */}
+      {biometricNotice && (
+        <div className="bg-emerald-100 border-b border-emerald-300 px-4 py-2 text-center text-xs font-bold text-emerald-900 animate-fade-in">
+          {biometricNotice}
+        </div>
+      )}
+
       {/* Offline Alert Banner */}
       {!isOnline && (
         <div className="bg-amber-100 border-b border-amber-300 px-4 py-2 text-center text-xs font-semibold text-amber-900 flex items-center justify-center gap-2">
           <WifiOff className="h-4 w-4 shrink-0 text-amber-700" />
           <span>
-            <strong>تنبيه العمل دون اتصال:</strong> تم حفظ التعديلات محلياً على جهازك وستتم المزامنة تلقائياً فور عودة الاتصال بالإنترنت.
+            <strong>تنبيه العمل دون اتصال:</strong> تم حفظ التعديلات محلياً وستتم المزامنة تلقائياً فور عودة الاتصال.
           </span>
+        </div>
+      )}
+
+      {/* 14-Digit Access Code Modal */}
+      {showCodeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in" dir="rtl">
+          <div className="relative w-full max-w-sm rounded-2xl border border-amber-300 bg-white p-6 text-slate-800 shadow-2xl text-center">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-200">
+              <KeyRound className="h-6 w-6" />
+            </div>
+
+            <h3 className="font-extrabold text-base text-slate-900 mb-1">
+              كود الدخول الخاص بك (١٤ رقماً)
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              يمكنك استخدام هذا الكود لتسجيل الدخول في أي وقت على أي جهاز
+            </p>
+
+            <div className="rounded-xl border border-amber-300 bg-amber-50/50 p-4 mb-4">
+              <div className="font-mono text-xl sm:text-2xl font-black text-amber-800 tracking-wider select-all">
+                {format14DigitCode(currentUser.accessCode)}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleCopyCode}
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-amber-500 py-2.5 text-xs font-bold text-white hover:bg-amber-600 shadow-sm"
+              >
+                {copiedCode ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <span>{copiedCode ? 'تم نسخ الكود!' : 'نسخ الكود'}</span>
+              </button>
+              <button
+                onClick={() => setShowCodeModal(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                إغلاق
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

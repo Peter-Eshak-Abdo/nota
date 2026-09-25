@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
       processedIds,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to sync offline queue';
     return NextResponse.json(
       {
         success: false,
-        error: error.message || 'Failed to sync offline queue',
+        error: message,
       },
       { status: 500 }
     );

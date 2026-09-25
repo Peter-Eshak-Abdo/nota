@@ -2,16 +2,14 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { UserProfile, HabitType } from '@/types';
+import { UserProfile, HabitType, AgpeyaHour } from '@/types';
 import { SermonsSection } from '@/components/sermons/SermonsSection';
-import { POPULAR_BIBLE_BOOKS } from '@/lib/antiCheatEngine';
+import { ALL_CANONICAL_BIBLE_BOOKS } from '@/lib/bibleCanon';
 import {
   Users,
   Flame,
-  FileText,
   Send,
   Lock,
-  PlusCircle,
   AlertCircle,
   CheckCircle,
   Clock,
@@ -23,6 +21,7 @@ import {
   Calendar,
   MessageSquare,
   UserCheck,
+  Bell,
 } from 'lucide-react';
 
 export const ServantDashboard: React.FC = () => {
@@ -37,38 +36,40 @@ export const ServantDashboard: React.FC = () => {
     registrationRequests,
     handleRegistrationDecision,
     assignReadingPlanToYouth,
+    updateYouthAgpeyaHours,
+    sendMessageToYouth,
     getUserDailyLog,
   } = useApp();
 
-  if (!currentUser) return null;
-
-  // Filter youths assigned to this servant
   const myYouths = allUsers.filter(
-    (u) => u.role === 'youth' && u.assignedServantId === currentUser.uid && u.status === 'active'
+    (u) => u.role === 'youth' && u.assignedServantId === currentUser?.uid && u.status === 'active'
   );
 
-  // Pending youth registrations specifically awaiting this servant
   const pendingYouthRegistrations = registrationRequests.filter(
     (r) =>
       r.role === 'youth' &&
       r.status === 'pending' &&
-      (r.assignedServantId === currentUser.uid || r.targetApproverId === currentUser.uid)
+      (r.assignedServantId === currentUser?.uid || r.targetApproverId === currentUser?.uid)
   );
 
-  const [selectedYouth, setSelectedYouth] = useState<UserProfile | null>(
-    myYouths[0] || null
-  );
+  const [selectedYouth, setSelectedYouth] = useState<UserProfile | null>(() => myYouths[0] || null);
 
-  const [activeTab, setActiveTab] = useState<'daily_followup' | 'bible_plans' | 'private_notes' | 'registrations'>('daily_followup');
+  const [activeTab, setActiveTab] = useState<'daily_followup' | 'agpeya_setup' | 'bible_plans' | 'private_notes' | 'registrations'>('daily_followup');
 
   // Private note state
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteCategory, setNewNoteCategory] = useState<'spiritual' | 'social' | 'academic' | 'urgent'>('spiritual');
 
-  // Assign reading modal state
+  // Assign reading modal state with full canonical books
   const [showAssignBookModal, setShowAssignBookModal] = useState(false);
-  const [selectedBookName, setSelectedBookName] = useState(POPULAR_BIBLE_BOOKS[0].name);
-  const [selectedBookChapters, setSelectedBookChapters] = useState(POPULAR_BIBLE_BOOKS[0].totalChapters);
+  const [selectedBookId, setSelectedBookId] = useState(ALL_CANONICAL_BIBLE_BOOKS[0].id);
+
+  // Message to Youth state
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [messageTitle, setMessageTitle] = useState('');
+  const [messageContent, setMessageContent] = useState('');
+  const [messageType, setMessageType] = useState<'reminder_bible' | 'reminder_task' | 'encouragement' | 'custom'>('reminder_bible');
+  const [messageSentSuccess, setMessageSentSuccess] = useState(false);
 
   // Approval request state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -76,6 +77,18 @@ export const ServantDashboard: React.FC = () => {
   const [requestReason, setRequestReason] = useState('');
   const [recoveryDays, setRecoveryDays] = useState(1);
   const [requestSentNotice, setRequestSentNotice] = useState(false);
+
+  const allAgpeyaHours: { key: AgpeyaHour; name: string }[] = [
+    { key: 'baker', name: 'صلاة باكر' },
+    { key: 'third', name: 'صلاة الساعة الثالثة' },
+    { key: 'sixth', name: 'صلاة الساعة السادسة' },
+    { key: 'ninth', name: 'صلاة الساعة التاسعة' },
+    { key: 'sunset', name: 'صلاة الغروب' },
+    { key: 'sleep', name: 'صلاة النوم' },
+    { key: 'midnight', name: 'صلاة نصف الليل' },
+  ];
+
+  if (!currentUser) return null;
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +104,23 @@ export const ServantDashboard: React.FC = () => {
     });
 
     setNewNoteContent('');
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedYouth || !messageContent.trim()) return;
+
+    sendMessageToYouth(
+      selectedYouth.uid,
+      messageTitle || 'رسالة من خادمك',
+      messageContent.trim(),
+      messageType
+    );
+
+    setMessageContent('');
+    setShowMessageModal(false);
+    setMessageSentSuccess(true);
+    setTimeout(() => setMessageSentSuccess(false), 4000);
   };
 
   const handleSendApprovalRequest = (e: React.FormEvent) => {
@@ -116,14 +146,26 @@ export const ServantDashboard: React.FC = () => {
   const handleAssignBookSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedYouth) return;
-    assignReadingPlanToYouth(selectedYouth.uid, selectedBookName, selectedBookChapters);
+    const foundBook = ALL_CANONICAL_BIBLE_BOOKS.find((b) => b.id === selectedBookId);
+    if (!foundBook) return;
+
+    assignReadingPlanToYouth(selectedYouth.uid, foundBook.name, foundBook.totalChapters);
     setShowAssignBookModal(false);
   };
 
-  // Get daily log of selected youth for live task inspection
-  const selectedYouthLog = selectedYouth ? getUserDailyLog(selectedYouth.uid) : null;
+  const toggleAgpeyaHourForYouth = (hourKey: AgpeyaHour) => {
+    if (!selectedYouth) return;
+    const currentHours = selectedYouth.assignedAgpeyaHours || ['baker', 'sleep'];
+    const exists = currentHours.includes(hourKey);
+    const updated = exists
+      ? currentHours.filter((h) => h !== hourKey)
+      : [...currentHours, hourKey];
 
-  // Notes visible for this youth
+    updateYouthAgpeyaHours(selectedYouth.uid, updated);
+  };
+
+  // Selected youth status
+  const selectedYouthLog = selectedYouth ? getUserDailyLog(selectedYouth.uid) : null;
   const youthNotes = selectedYouth
     ? servantNotes.filter((n) => n.youthId === selectedYouth.uid)
     : [];
@@ -131,8 +173,8 @@ export const ServantDashboard: React.FC = () => {
   const habitLabels: Record<HabitType, { name: string; icon: string }> = {
     bible: { name: 'قراءة الكتاب المقدس', icon: '📖' },
     prayer: { name: 'صلاة الأجبية والخلوة', icon: '✨' },
-    communion: { name: 'التناول من الأسرار', icon: '🕊️' },
-    confession: { name: 'جلسة الاعتراف', icon: '⏳' },
+    communion: { name: 'التناول من الأسرار', icon: '🍷' },
+    confession: { name: 'جلسة الاعتراف', icon: '🕊️' },
   };
 
   return (
@@ -151,7 +193,7 @@ export const ServantDashboard: React.FC = () => {
               سلام ونعمة، {currentUser.displayName} 🕊️
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 mt-1 max-w-xl">
-              تتابع هنا مخدوميك يومياً بالتفصيل: ما تم إنجازه، الأسئلة والإجابات، تحديد خطة أسفار الإنجيل، والملاحظات السرية.
+              تتابع هنا مخدوميك يومياً بالتفصيل: ما تم إنجازه، الأسئلة والإجابات، إرسال التنبيهات، وتحديد صلوات السواعي والأسفار.
             </p>
           </div>
 
@@ -159,7 +201,7 @@ export const ServantDashboard: React.FC = () => {
             {pendingYouthRegistrations.length > 0 && (
               <button
                 onClick={() => setActiveTab('registrations')}
-                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm animate-bounce"
+                className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3.5 py-2 text-xs font-bold text-white shadow-sm"
               >
                 <UserCheck className="h-4 w-4" />
                 <span>{pendingYouthRegistrations.length} طلب انضمام جديد!</span>
@@ -174,6 +216,13 @@ export const ServantDashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {messageSentSuccess && (
+        <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3.5 text-xs text-emerald-800">
+          <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+          <span>تم إرسال الرسالة والتنبيه بنجاح للمخدوم وسيظهر في لوحته فوراً!</span>
+        </div>
+      )}
 
       {requestSentNotice && (
         <div className="flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3.5 text-xs text-emerald-800">
@@ -257,17 +306,26 @@ export const ServantDashboard: React.FC = () => {
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 mt-1">
-                      البريد: {selectedYouth.email} • المهام الروحية الكلية: <strong className="text-amber-600">{selectedYouth.totalTasksCompleted}</strong>
+                      البريد: {selectedYouth.email} • كود الدخول المسجل: <span className="font-mono font-bold text-slate-800">{selectedYouth.accessCode}</span>
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Send Message Button */}
+                    <button
+                      onClick={() => setShowMessageModal(true)}
+                      className="flex items-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-sky-700 shadow-sm"
+                    >
+                      <Bell className="h-4 w-4" />
+                      <span>إرسال تنبيه / رسالة</span>
+                    </button>
+
                     <button
                       onClick={() => setShowAssignBookModal(true)}
                       className="flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600 shadow-sm"
                     >
                       <BookOpen className="h-4 w-4" />
-                      <span>تحديد / تغيير السفر</span>
+                      <span>تحديد السفر</span>
                     </button>
 
                     <button
@@ -282,7 +340,7 @@ export const ServantDashboard: React.FC = () => {
               </div>
 
               {/* Sub Tabs */}
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-2">
                 <button
                   onClick={() => setActiveTab('daily_followup')}
                   className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
@@ -293,6 +351,18 @@ export const ServantDashboard: React.FC = () => {
                 >
                   <Calendar className="h-4 w-4" />
                   <span>متابعة مهام اليوم وإجابات الأسئلة</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('agpeya_setup')}
+                  className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                    activeTab === 'agpeya_setup'
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Clock className="h-4 w-4" />
+                  <span>تحديد صلوات السواعي للمخدوم</span>
                 </button>
 
                 <button
@@ -322,7 +392,7 @@ export const ServantDashboard: React.FC = () => {
                 )}
               </div>
 
-              {/* Tab 1: Detailed Daily Follow-up with exact Question & Answer */}
+              {/* Tab 1: Detailed Daily Followup with exact Questions & Youth Answers */}
               {activeTab === 'daily_followup' && selectedYouthLog && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
@@ -331,7 +401,7 @@ export const ServantDashboard: React.FC = () => {
                         تقرير إنجاز اليوم ({selectedYouthLog.dateString})
                       </h3>
                       <p className="text-xs text-slate-500">
-                        عرض المهام المنجزة وغير المنجزة، ونص السؤال التأكيدي وإجابة المخدوم
+                        المهام المنجزة وغير المنجزة، ونص السؤال التأكيدي وإجابة المخدوم الكاملة
                       </p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
@@ -365,6 +435,11 @@ export const ServantDashboard: React.FC = () => {
                                   {record.bookName} • الأصحاح {record.chapterNumber}
                                 </span>
                               )}
+                              {taskType === 'prayer' && record?.agpeyaHour && (
+                                <span className="rounded bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">
+                                  {record.agpeyaHour}
+                                </span>
+                              )}
                             </div>
 
                             {isDone ? (
@@ -380,7 +455,7 @@ export const ServantDashboard: React.FC = () => {
                             )}
                           </div>
 
-                          {/* If Completed: Show the Exact Question & Youth Answer */}
+                          {/* Completed Details: Question Text + Youth Reflection Answer */}
                           {isDone ? (
                             <div className="mt-3 space-y-2 text-xs border-t border-emerald-100 pt-2.5">
                               {record.questionText && (
@@ -414,7 +489,7 @@ export const ServantDashboard: React.FC = () => {
                             </div>
                           ) : (
                             <p className="text-xs text-slate-400 mt-1">
-                              في انتظار قيام المخدوم بتسجيل هذا البند والإجابة على تأمله.
+                              في انتظار قيام المخدوم بتسجيل هذا البند وكتابة تأمله اليومي.
                             </p>
                           )}
                         </div>
@@ -424,32 +499,73 @@ export const ServantDashboard: React.FC = () => {
                 </div>
               )}
 
-              {/* Tab 2: Private Notes */}
+              {/* Tab 2: Agpeya Hours Setup for Youth */}
+              {activeTab === 'agpeya_setup' && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-sm sm:text-base">
+                      تحديد صلوات السواعي المطلوبة من المخدوم
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      يمكنك تحديد صلاة واحدة أو صلاتين أو أكثر (كالباكر والغروب والنوم) لتظهر في قانون المخدوم اليومي
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {allAgpeyaHours.map((h) => {
+                      const isAssigned = (selectedYouth.assignedAgpeyaHours || ['baker', 'sleep']).includes(h.key);
+
+                      return (
+                        <div
+                          key={h.key}
+                          onClick={() => toggleAgpeyaHourForYouth(h.key)}
+                          className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${
+                            isAssigned
+                              ? 'border-sky-500 bg-sky-50 text-sky-950 font-bold shadow-xs'
+                              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="text-xs">{h.name}</span>
+                          <span
+                            className={`rounded-lg px-2.5 py-1 text-[11px] font-bold ${
+                              isAssigned
+                                ? 'bg-sky-600 text-white'
+                                : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {isAssigned ? 'مفعلة في قانونه' : 'غير مفعلة'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Private Notes */}
               {activeTab === 'private_notes' && (
-                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
-                        <Lock className="h-4 w-4" />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-slate-900 text-sm sm:text-base">
-                          الملاحظات السرية للرعاية (Private Notes)
-                        </h3>
-                        <p className="text-xs text-slate-500">
-                          مرئية لك ولأمين الخدمة فقط — لن يراها المخدوم حفاظاً على سرية المتابعة
-                        </p>
-                      </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 border border-rose-200">
+                      <Lock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-sm sm:text-base">
+                        الملاحظات السرية للرعاية (Private Notes)
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        مرئية لك ولأمين الخدمة فقط — لن يراها المخدوم حفاظاً على سرية المتابعة
+                      </p>
                     </div>
                   </div>
 
                   {/* Add Note Form */}
-                  <form onSubmit={handleAddNote} className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
-                    <div className="mb-2 flex items-center justify-between">
+                  <form onSubmit={handleAddNote} className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 space-y-2">
+                    <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-700">تدوين ملاحظة جديدة:</span>
                       <select
                         value={newNoteCategory}
-                        onChange={(e) => setNewNoteCategory(e.target.value as any)}
+                        onChange={(e) => setNewNoteCategory(e.target.value as 'spiritual' | 'social' | 'academic' | 'urgent')}
                         className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800"
                       >
                         <option value="spiritual">روحيّة</option>
@@ -464,7 +580,7 @@ export const ServantDashboard: React.FC = () => {
                       onChange={(e) => setNewNoteContent(e.target.value)}
                       rows={2}
                       placeholder="اكتب ملاحظة متابعة أو موضوع يحتاج صلاة ومتابعة شخصية..."
-                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-sky-500 focus:outline-none resize-none mb-2"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:border-sky-500 focus:outline-none resize-none"
                     />
 
                     <div className="flex justify-end">
@@ -495,17 +611,11 @@ export const ServantDashboard: React.FC = () => {
                         <p className="text-slate-800 leading-relaxed font-medium">{note.content}</p>
                       </div>
                     ))}
-
-                    {youthNotes.length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-4">
-                        لا توجد ملاحظات سرية مسجلة بعد لهذا المخدوم.
-                      </p>
-                    )}
                   </div>
                 </div>
               )}
 
-              {/* Tab 3: Registrations Awaiting this Servant */}
+              {/* Tab 4: Registrations Awaiting this Servant */}
               {activeTab === 'registrations' && (
                 <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3">
                   <h3 className="font-bold text-slate-900 text-sm">
@@ -519,7 +629,8 @@ export const ServantDashboard: React.FC = () => {
                       <div>
                         <h4 className="font-bold text-sm text-slate-900">{req.userName}</h4>
                         <p className="text-xs text-slate-500">
-                          البريد: {req.email} • الهاتف: {req.phone || 'غير مسجل'}
+                          البريد: {req.email} • الهاتف: {req.phone || 'غير مسجل'} • كود المخدوم:{' '}
+                          <span className="font-mono font-bold text-amber-800">{req.accessCode}</span>
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -558,10 +669,118 @@ export const ServantDashboard: React.FC = () => {
         canAddSermon={true}
       />
 
-      {/* Assign Bible Book Modal */}
+      {/* Send Message to Youth Modal */}
+      {showMessageModal && selectedYouth && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in" dir="rtl">
+          <div className="relative w-full max-w-md rounded-2xl border border-sky-300 bg-white p-6 text-slate-800 shadow-2xl">
+            <button
+              onClick={() => setShowMessageModal(false)}
+              className="absolute top-4 left-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 bg-slate-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <h3 className="text-base font-black text-slate-900 mb-1">
+              إرسال رسالة أو تنبيه للمخدوم: {selectedYouth.displayName}
+            </h3>
+            <p className="text-xs text-slate-500 mb-4">
+              ستصل الرسالة مباشرة في لوحة المخدوم كتنبيه تشجيع أو تذكير بالمهمات
+            </p>
+
+            <form onSubmit={handleSendMessage} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  قوالب رسائل جاهزة سريعة:
+                </label>
+                <div className="grid grid-cols-1 gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageType('reminder_bible');
+                      setMessageTitle('تذكير بقراءة الإنجيل اليومية 📖');
+                      setMessageContent('سلام ونعمة يا بطل، لا تنس قراءة إصحاح اليوم والتأمل في وصية ربنا!');
+                    }}
+                    className="p-2 text-right rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 text-xs font-semibold text-slate-800"
+                  >
+                    📖 تذكير بقراءة إصحاح الإنجيل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageType('reminder_task');
+                      setMessageTitle('تذكير بمهمة قديمة لم تُسجل ⏳');
+                      setMessageContent('لاحظت أن هناك بنداً لم تقم بتسجيله اليوم، شجع نفسك وأتمم قانونك الروحي قبل النوم.');
+                    }}
+                    className="p-2 text-right rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 text-xs font-semibold text-slate-800"
+                  >
+                    ⏳ تذكير بمهمة قديمة لم تكتمل
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessageType('encouragement');
+                      setMessageTitle('تشجيع: عاش يا بطل! 🌟');
+                      setMessageContent('فرحان بأمانتك والتزامك في النوتة الروحية، استمر بنفس الحماس وربنا يباركك!');
+                    }}
+                    className="p-2 text-right rounded-lg border border-slate-200 bg-slate-50 hover:bg-sky-50 text-xs font-semibold text-slate-800"
+                  >
+                    🌟 رسالة تشجيع على الالتزام
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  عنوان الرسالة:
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={messageTitle}
+                  onChange={(e) => setMessageTitle(e.target.value)}
+                  placeholder="عنوان التنبيه"
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 focus:border-sky-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  نص الرسالة:
+                </label>
+                <textarea
+                  required
+                  rows={3}
+                  value={messageContent}
+                  onChange={(e) => setMessageContent(e.target.value)}
+                  placeholder="اكتب رسالتك للمخدوم..."
+                  className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 focus:border-sky-500 focus:outline-none resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMessageModal(false)}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs text-slate-600 hover:bg-slate-50"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-sky-600 px-5 py-2 text-xs font-bold text-white hover:bg-sky-700 shadow-sm"
+                >
+                  إرسال التنبيه
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Canonical Bible Book Modal (All 73 books ordered canonically) */}
       {showAssignBookModal && selectedYouth && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in" dir="rtl">
-          <div className="relative w-full max-w-md rounded-2xl border border-amber-300 bg-white p-6 text-slate-800 shadow-2xl">
+          <div className="relative w-full max-w-lg rounded-2xl border border-amber-300 bg-white p-6 text-slate-800 shadow-2xl">
             <button
               onClick={() => setShowAssignBookModal(false)}
               className="absolute top-4 left-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 bg-slate-100"
@@ -570,65 +789,55 @@ export const ServantDashboard: React.FC = () => {
             </button>
 
             <h3 className="text-base font-black text-slate-900 mb-1">
-              تحديد سفر الإنجيل للمخدوم: {selectedYouth.displayName}
+              تحديد سفر الإنجيل من الكتاب المقدس بالترتيب الكنسي
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              سيقوم المخدوم بقراءة أصحاح يومياً وسيتلقى سؤال التأمل التلقائي المرتبط بهذا السفر.
+              اختر السفر المطلوب للمخدوم ({selectedYouth.displayName})؛ مرتبة بحسب الترتيب الكنسي الأرثوذكسي
             </p>
 
             <form onSubmit={handleAssignBookSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  اختر من الأسفار المقترحة:
+                  اختر السفر (العهد القديم والجديد مرتبة كنسياً):
                 </label>
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {POPULAR_BIBLE_BOOKS.map((b) => (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedBookName(b.name);
-                        setSelectedBookChapters(b.totalChapters);
-                      }}
-                      className={`p-2.5 rounded-xl border text-right text-xs transition-all ${
-                        selectedBookName === b.name
-                          ? 'border-amber-500 bg-amber-50 font-bold text-amber-900'
-                          : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      <span className="font-bold block">{b.name}</span>
-                      <span className="text-[10px] text-slate-500">
-                        {b.totalChapters} أصحاحات
-                      </span>
-                    </button>
-                  ))}
-                </div>
+                <select
+                  value={selectedBookId}
+                  onChange={(e) => setSelectedBookId(e.target.value)}
+                  className="w-full rounded-xl border border-slate-300 p-3 text-xs sm:text-sm font-bold text-slate-900 focus:border-amber-500 focus:outline-none"
+                  size={8}
+                >
+                  <optgroup label="--- العهد الجديد (الأناجيل والرسائل والرؤيا) ---">
+                    {ALL_CANONICAL_BIBLE_BOOKS.filter((b) => b.testament === 'new').map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.totalChapters} أصحاح) — {b.categoryName}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="--- العهد القديم (الشريعة والتاريخ والأنبياء) ---">
+                    {ALL_CANONICAL_BIBLE_BOOKS.filter((b) => b.testament === 'old').map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.totalChapters} أصحاح) — {b.categoryName}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  أو اكتب اسم السفر وعدد أصحاحاته:
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  <input
-                    type="text"
-                    required
-                    value={selectedBookName}
-                    onChange={(e) => setSelectedBookName(e.target.value)}
-                    placeholder="اسم السفر"
-                    className="col-span-2 rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    max={150}
-                    required
-                    value={selectedBookChapters}
-                    onChange={(e) => setSelectedBookChapters(Number(e.target.value))}
-                    className="rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none text-center font-bold"
-                  />
-                </div>
-              </div>
+              {/* Selected book info banner */}
+              {(() => {
+                const book = ALL_CANONICAL_BIBLE_BOOKS.find((b) => b.id === selectedBookId);
+                return book ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-amber-950 block">{book.name}</span>
+                      <span className="text-[11px] text-amber-800">{book.categoryName}</span>
+                    </div>
+                    <span className="font-black text-amber-900 bg-white border border-amber-200 px-2.5 py-1 rounded-lg">
+                      {book.totalChapters} أصحاحات
+                    </span>
+                  </div>
+                ) : null;
+              })()}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -675,7 +884,7 @@ export const ServantDashboard: React.FC = () => {
                 </label>
                 <select
                   value={requestType}
-                  onChange={(e) => setRequestType(e.target.value as any)}
+                  onChange={(e) => setRequestType(e.target.value as 'edit_profile' | 'task_adjustment' | 'streak_recovery')}
                   className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-amber-500 focus:outline-none"
                 >
                   <option value="streak_recovery">استعادة أيام في السلسلة (Streak Recovery)</option>

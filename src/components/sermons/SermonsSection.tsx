@@ -228,7 +228,7 @@ export const SermonsSection: React.FC<SermonsSectionProps> = ({
                 </label>
                 <select
                   value={targetType}
-                  onChange={(e) => setTargetType(e.target.value as any)}
+                  onChange={(e) => setTargetType(e.target.value as 'all' | 'specific')}
                   className="w-full rounded-xl border border-slate-300 px-3.5 py-2 text-xs text-slate-900 focus:border-purple-500 focus:outline-none"
                 >
                   <option value="all">كل شباب الخدمة (عامة)</option>

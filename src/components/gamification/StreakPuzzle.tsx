@@ -20,7 +20,9 @@ export const StreakPuzzle: React.FC<StreakPuzzleProps> = ({
 
   const playCelebrationChime = () => {
     try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
       const notes = [523.25, 659.25, 783.99, 1046.5];

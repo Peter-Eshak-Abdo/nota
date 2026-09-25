@@ -2,13 +2,24 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { HabitType } from '@/types';
+import { HabitType, AgpeyaHour } from '@/types';
 import { HabitCard } from '@/components/habits/HabitCard';
 import { AntiCheatModal } from '@/components/habits/AntiCheatModal';
 import { MysteryShapeCanvas } from '@/components/gamification/MysteryShapeCanvas';
 import { StreakPuzzle } from '@/components/gamification/StreakPuzzle';
 import { SermonsSection } from '@/components/sermons/SermonsSection';
-import { ShieldCheck, BookOpen, CheckCircle, User, Sparkles, MessageCircle, AlertCircle } from 'lucide-react';
+import { ConfessionSacredCard } from '@/components/sacred/ConfessionSacredCard';
+import { CommunionSacredCard } from '@/components/sacred/CommunionSacredCard';
+import { MonthlyArchiveGallery } from '@/components/sacred/MonthlyArchiveGallery';
+import { ServantMessagesBox } from '@/components/notifications/ServantMessagesBox';
+import { ErrorReporterModal } from '@/components/common/ErrorReporterModal';
+import {
+  ShieldCheck,
+  BookOpen,
+  CheckCircle,
+  User,
+  AlertTriangle,
+} from 'lucide-react';
 
 export const YouthDashboard: React.FC = () => {
   const {
@@ -18,13 +29,25 @@ export const YouthDashboard: React.FC = () => {
     markTaskComplete,
     sermons,
     toggleSermonWatched,
-    setYouthStreakDirectly,
+    servantMessages,
+    markMessageAsRead,
+    weeklyCommunions,
+    recordWeeklyCommunion,
+    monthlyConfessions,
+    recordMonthlyConfession,
+    monthlyArchives,
+    reportErrorToAdmin,
   } = useApp();
 
   const [activeTaskForModal, setActiveTaskForModal] = useState<{
     type: HabitType;
     title: string;
+    agpeyaHour?: AgpeyaHour;
   } | null>(null);
+
+  // Error reporter modal state
+  const [showErrorReporter, setShowErrorReporter] = useState(false);
+  const [errorContext, setErrorContext] = useState({ source: '', message: '' });
 
   if (!currentUser) return null;
 
@@ -35,48 +58,42 @@ export const YouthDashboard: React.FC = () => {
   const readingPlan = currentUser.assignedReading;
   const isBibleFinished = readingPlan?.isCompleted;
 
-  const habitConfigs: {
-    type: HabitType;
-    title: string;
-    subtitle: string;
-    frequency: string;
-  }[] = [
-    {
-      type: 'bible',
-      title: readingPlan
-        ? `قراءة الإنجيل: ${readingPlan.bookName} (الأصحاح ${readingPlan.currentChapter} من ${readingPlan.totalChapters})`
-        : 'قراءة الكتاب المقدس وتأمل الإصحاح',
-      subtitle: isBibleFinished
-        ? `🎉 أتممت قراءة ${readingPlan?.bookName} بالكامل! اطلب سفراً جديداً.`
-        : readingPlan
-        ? `تأمل يومي في الأصحاح ${readingPlan.currentChapter} من ${readingPlan.bookName}`
-        : 'لم يحدد لك خادمك سفراً بعد؛ اضغط للتأمل اليومي العام',
-      frequency: 'يومي',
-    },
-    {
-      type: 'prayer',
-      title: 'صلاة الأجبية والخلوة الشخصية',
-      subtitle: 'صلاة باكر أو الغروب والنوم مع وقفة شكر وفحص ذات صادق',
-      frequency: 'يومي',
-    },
-    {
-      type: 'communion',
-      title: 'التناول من الأسرار المقدسة والقداس',
-      subtitle: 'حضور القداس الإلهي بروح التوبة والاشتراك في سر الإفخارستيا',
-      frequency: 'أسبوعي / قداس',
-    },
-    {
-      type: 'confession',
-      title: 'جلسة الاعتراف والإرشاد الروحي',
-      subtitle: 'الجلوس مع أب الاعتراف لنوال الحل ومحاسبة النفس على التداريب',
-      frequency: 'شهري / دوري',
-    },
-  ];
+  // Filter messages for this youth
+  const myMessages = servantMessages.filter((m) => m.youthId === currentUser.uid);
 
-  const handleOpenValidation = (type: HabitType) => {
-    const config = habitConfigs.find((h) => h.type === type);
-    if (!config) return;
-    setActiveTaskForModal({ type, title: config.title });
+  // Month names
+  const currentMonthDate = new Date();
+  const currentMonthName = currentMonthDate.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+  const currentMonthKey = currentMonthDate.toISOString().slice(0, 7);
+
+  // Filter communion & confession for current month
+  const myCommunionsThisMonth = weeklyCommunions.filter(
+    (c) => c.userId === currentUser.uid && c.monthKey === currentMonthKey
+  );
+  const myConfessionThisMonth = monthlyConfessions.find(
+    (c) => c.userId === currentUser.uid && c.monthKey === currentMonthKey
+  );
+
+  // Assigned Agpeya Hours
+  const assignedHours: AgpeyaHour[] = currentUser.assignedAgpeyaHours || ['baker', 'sleep'];
+  const agpeyaHourLabels: Record<AgpeyaHour, string> = {
+    baker: 'صلاة باكر',
+    third: 'صلاة الساعة الثالثة',
+    sixth: 'صلاة الساعة السادسة',
+    ninth: 'صلاة الساعة التاسعة',
+    sunset: 'صلاة الغروب',
+    sleep: 'صلاة النوم',
+    midnight: 'صلاة نصف الليل',
+  };
+
+  const handleOpenValidation = (type: HabitType, agpeyaHour?: AgpeyaHour) => {
+    let title = 'القانون الروحي';
+    if (type === 'bible') {
+      title = readingPlan ? `قراءة: ${readingPlan.bookName} (أصحاح ${readingPlan.currentChapter})` : 'قراءة الإنجيل اليومية';
+    } else if (type === 'prayer') {
+      title = agpeyaHour ? `الأجبية: ${agpeyaHourLabels[agpeyaHour]}` : 'صلاة الأجبية والخلوة';
+    }
+    setActiveTaskForModal({ type, title, agpeyaHour });
   };
 
   const handleValidationSubmit = (
@@ -86,14 +103,21 @@ export const YouthDashboard: React.FC = () => {
     questionText: string
   ) => {
     if (!activeTaskForModal) return;
-    markTaskComplete(
-      activeTaskForModal.type,
-      answer,
-      questionId,
-      timeSpentSeconds,
-      questionText
-    );
-    setActiveTaskForModal(null);
+    try {
+      markTaskComplete(
+        activeTaskForModal.type,
+        answer,
+        questionId,
+        timeSpentSeconds,
+        questionText,
+        activeTaskForModal.agpeyaHour
+      );
+      setActiveTaskForModal(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'حدث خطأ أثناء حفظ المهمة';
+      setErrorContext({ source: 'YouthDashboard:markTaskComplete', message });
+      setShowErrorReporter(true);
+    }
   };
 
   return (
@@ -133,7 +157,15 @@ export const YouthDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Bible Reading Plan Alert Banner */}
+      {/* Messages from Servant */}
+      {myMessages.length > 0 && (
+        <ServantMessagesBox
+          messages={myMessages}
+          onMarkAsRead={markMessageAsRead}
+        />
+      )}
+
+      {/* Assigned Bible Reading Plan Card */}
       {readingPlan && (
         <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -152,23 +184,20 @@ export const YouthDashboard: React.FC = () => {
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isBibleFinished
-                    ? 'أتممت جميع أصحاحات السفر بنجاح!'
+                    ? `أتممت جميع أصحاحات (${readingPlan.totalChapters}) بنجاح!`
                     : `أنت الآن في الأصحاح ${readingPlan.currentChapter} من إجمالي ${readingPlan.totalChapters} أصحاحات.`}
                 </p>
               </div>
             </div>
 
-            {/* If finished: Show call-to-action message to request a new book */}
             {isBibleFinished ? (
               <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-300 p-2.5 text-xs font-bold text-emerald-900">
                 <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
                 <span>🎉 مبارك إتمام السفر! تواصل مع خادمك لتحديد سفر جديد.</span>
               </div>
             ) : (
-              <div className="text-left">
-                <span className="text-xs font-black text-amber-700">
-                  الأصحاح {readingPlan.currentChapter} / {readingPlan.totalChapters}
-                </span>
+              <div className="text-left font-mono font-black text-xs text-amber-700 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
+                الأصحاح {readingPlan.currentChapter} من {readingPlan.totalChapters}
               </div>
             )}
           </div>
@@ -187,46 +216,78 @@ export const YouthDashboard: React.FC = () => {
         <StreakPuzzle
           currentStreak={currentUser.currentStreak}
           userName={currentUser.displayName}
-          onFastForwardStreak={(streak) => setYouthStreakDirectly(streak)}
         />
       </div>
 
-      {/* The Spiritual Law Tasks (بنود القانون الروحي) */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
+      {/* Daily Spiritual Law (القانون الروحي اليومي: إنجيل + صلوات السواعي المحددة) */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600 border border-amber-200">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-bold text-slate-900">
-                بنود القانون الروحي اليومي
+                قانون اليوم: الكتاب المقدس وصلوات السواعي
               </h2>
               <p className="text-xs text-slate-500">
-                اضغط على أي بند للإجابة على التأمل اللحظي المريح وتأكيد إنجازك
+                حدد خادمك صلوات السواعي اليومية الخاصة بك: {assignedHours.map((h) => agpeyaHourLabels[h]).join(' • ')}
               </p>
             </div>
-          </div>
-          <div className="text-left font-mono text-xs font-bold text-amber-800 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-            {currentDailyLog.completedCount} / 4 مكتمل اليوم
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {habitConfigs.map((habit) => (
-            <HabitCard
-              key={habit.type}
-              type={habit.type}
-              title={habit.title}
-              subtitle={habit.subtitle}
-              frequency={habit.frequency}
-              record={currentDailyLog.tasks[habit.type]}
-              onOpenValidation={handleOpenValidation}
-              disabled={habit.type === 'bible' && isBibleFinished}
-            />
-          ))}
+          {/* Bible Reading Card */}
+          <HabitCard
+            type="bible"
+            title={readingPlan ? `قراءة: ${readingPlan.bookName} (أصحاح ${readingPlan.currentChapter})` : 'قراءة الإنجيل اليومية'}
+            subtitle={isBibleFinished ? '🎉 أتممت السفر بالكامل! اطلب من خادمك سفراً جديداً' : 'قراءة وتأمل الإصحاح مع سؤال ظرفي'}
+            frequency="يومي"
+            record={currentDailyLog.tasks.bible}
+            onOpenValidation={() => handleOpenValidation('bible')}
+            disabled={isBibleFinished}
+          />
+
+          {/* Agpeya Prayers Cards */}
+          {assignedHours.map((hourKey) => {
+            const hourLabel = agpeyaHourLabels[hourKey];
+            const isDone = currentDailyLog.tasks.prayer?.completed && currentDailyLog.tasks.prayer?.agpeyaHour === hourKey;
+
+            return (
+              <HabitCard
+                key={hourKey}
+                type="prayer"
+                title={`الأجبية: ${hourLabel}`}
+                subtitle={`صلاة الأجبية والخلوة - ${hourLabel}`}
+                frequency="يومي"
+                record={isDone ? currentDailyLog.tasks.prayer : undefined}
+                onOpenValidation={() => handleOpenValidation('prayer', hourKey)}
+              />
+            );
+          })}
         </div>
       </div>
+
+      {/* Distinct Dedicated Sacred Cards for Communion and Confession */}
+      <div className="space-y-4">
+        {/* Weekly Communion Sacred Card */}
+        <CommunionSacredCard
+          currentMonthName={currentMonthName}
+          weeklyRecords={myCommunionsThisMonth}
+          onRecordWeeklyCommunion={recordWeeklyCommunion}
+        />
+
+        {/* Monthly Confession Sacred Card */}
+        <ConfessionSacredCard
+          currentMonthName={currentMonthName}
+          record={myConfessionThisMonth}
+          onRecordConfession={({ fatherName, reflection }) => recordMonthlyConfession(fatherName, reflection)}
+        />
+      </div>
+
+      {/* Monthly Sacred Gallery (أرشيف الشهور السابقة) */}
+      <MonthlyArchiveGallery archives={monthlyArchives} />
 
       {/* Sermons Playlist */}
       <SermonsSection
@@ -235,7 +296,21 @@ export const YouthDashboard: React.FC = () => {
         canAddSermon={false}
       />
 
-      {/* Anti-Cheat Modal */}
+      {/* Support / Report Issue to Admin Button */}
+      <div className="flex justify-center pt-2">
+        <button
+          onClick={() => {
+            setErrorContext({ source: 'واجهة المخدوم', message: 'تقرير أو ملاحظة مرسلة من المخدوم' });
+            setShowErrorReporter(true);
+          }}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors"
+        >
+          <AlertTriangle className="h-3.5 w-3.5 text-slate-400" />
+          <span>هل تواجه مشكلة؟ أبلغ أمين الخدمة بها فوراً</span>
+        </button>
+      </div>
+
+      {/* Anti-Cheat Dynamic Verification Modal */}
       {activeTaskForModal && (
         <AntiCheatModal
           isOpen={!!activeTaskForModal}
@@ -247,6 +322,15 @@ export const YouthDashboard: React.FC = () => {
           onSubmit={handleValidationSubmit}
         />
       )}
+
+      {/* Error Reporter Modal */}
+      <ErrorReporterModal
+        isOpen={showErrorReporter}
+        errorMessage={errorContext.message}
+        errorSource={errorContext.source}
+        onClose={() => setShowErrorReporter(false)}
+        onSubmitReport={(details) => reportErrorToAdmin(errorContext.source, errorContext.message, details)}
+      />
     </div>
   );
 };
