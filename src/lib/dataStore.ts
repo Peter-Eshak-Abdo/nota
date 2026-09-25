@@ -15,7 +15,7 @@ import {
 export const SEED_PROFILES: UserProfile[] = [
   {
     uid: 'admin-1',
-    accessCode: '', // Managed securely via Backend Environment Variables (ADMIN_ACCESS_CODE)
+    accessCode: '',
     email: 'admin@nota.church',
     displayName: 'أ. بيتر إسحاق',
     role: 'admin',

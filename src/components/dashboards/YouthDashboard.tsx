@@ -123,7 +123,7 @@ export const YouthDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Light Welcome Banner */}
-      <div className="rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-white to-amber-50/60 p-6 shadow-sm">
+      <div className="rounded-2xl border border-amber-200 bg-linear-to-r from-amber-50 via-white to-amber-50/60 p-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
